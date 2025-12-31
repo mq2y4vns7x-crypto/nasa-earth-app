@@ -1,81 +1,64 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-    <meta charset="UTF-8">
+    <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-    <title>Global Command Center</title>
-    <link href="https://cesium.com/downloads/cesiumjs/releases/1.104/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+    <title>HD Earth Fix</title>
     <script src="https://cesium.com/downloads/cesiumjs/releases/1.104/Build/Cesium/Cesium.js"></script>
+    <link href="https://cesium.com/downloads/cesiumjs/releases/1.104/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
     <style>
-        body, html { margin: 0; padding: 0; height: 100%; background: #000; overflow: hidden; }
+        body { margin: 0; background: #000; overflow: hidden; }
         #cesiumContainer { width: 100%; height: 100%; position: absolute; }
-        #hud { 
-            position: absolute; top: 15px; left: 15px; 
-            background: rgba(0, 15, 30, 0.9); padding: 12px; 
-            border: 1px solid #00f2ff; z-index: 100; color: #00f2ff;
-            font-family: monospace; pointer-events: none;
-            box-shadow: 0 0 15px rgba(0, 242, 255, 0.3);
-        }
+        #hud { position: absolute; top: 10px; left: 10px; color: #0f0; background: rgba(0,0,0,0.8); padding: 10px; z-index: 10; font-family: monospace; border: 1px solid #0f0; }
     </style>
 </head>
 <body>
-    <div id="hud">
-        <b>MISSION CONTROL</b><br>
-        <div id="status">STATUS: INITIALIZING...</div>
-    </div>
+    <div id="hud">SYSTEM: <span id="status">WAITING FOR TOKEN...</span></div>
     <div id="cesiumContainer"></div>
 
     <script>
-        // 1. YOUR TOKEN
-        Cesium.Ion.defaultAccessToken = 'PASTE_YOUR_TOKEN_HERE';
+        // 🛑 PASTE YOUR TOKEN EXACTLY BETWEEN THE ' ' MARKS
+        const myToken = 'PASTE_YOUR_TOKEN_HERE';
 
-        async function startGlobe() {
-            const statusEl = document.getElementById('status');
+        async function init() {
+            const status = document.getElementById('status');
+            
+            if (myToken.includes('PASTE_YOUR_TOKEN')) {
+                status.innerText = "ERROR: NO TOKEN PASTED";
+                return;
+            }
+
             try {
-                // 2. Initialize Viewer with High-Def Settings
+                Cesium.Ion.defaultAccessToken = myToken.trim();
+
                 const viewer = new Cesium.Viewer('cesiumContainer', {
-                    terrainProvider: await Cesium.createWorldTerrainAsync(),
-                    baseLayerPicker: false,
-                    geocoder: true,
-                    timeline: false,
-                    animation: false,
-                    sceneModePicker: false, // Keeps it as a 3D Globe
-                    skyAtmosphere: new Cesium.SkyAtmosphere(), // Adds the blue air layer
+                    baseLayerPicker: false, animation: false, timeline: false,
+                    terrainProvider: await Cesium.createWorldTerrainAsync()
                 });
 
-                // 3. IMPROVE ZOOM & QUALITY
-                viewer.scene.globe.enableLighting = true; // Adds shadows and sun
-                viewer.scene.screenSpaceCameraController.minimumZoomDistance = 10.0; // Stop zoom glitch
-                viewer.scene.fog.enabled = true; // Makes the horizon look realistic
-
-                // 4. LOAD HIGH-RES EARTH
-                const imagery = await Cesium.createWorldImageryAsync({
-                    style: Cesium.IonWorldImageryStyle.AERIAL_WITH_LABELS
-                });
+                // Load 30cm-style Imagery
+                const imagery = await Cesium.createWorldImageryAsync();
                 viewer.imageryLayers.addImageryProvider(imagery);
 
-                // 5. LOAD 3D BUILDINGS
+                // Load Buildings
                 const buildings = await Cesium.createOsmBuildingsAsync();
                 viewer.scene.primitives.add(buildings);
 
-                statusEl.innerHTML = "STATUS: <span style='color:lime'>ONLINE</span>";
+                // LOCK ZOOM: Prevents the "Pixel Blur" by stopping camera at 200m
+                viewer.scene.screenSpaceCameraController.minimumZoomDistance = 200;
 
-                // 6. TARGET: HAINES CITY
+                status.innerText = "HD ONLINE";
                 viewer.camera.flyTo({
-                    destination: Cesium.Cartesian3.fromDegrees(-81.6231, 28.1136, 1200),
-                    orientation: { 
-                        pitch: Cesium.Math.toRadians(-25),
-                        heading: Cesium.Math.toRadians(0) 
-                    },
-                    duration: 5
+                    destination: Cesium.Cartesian3.fromDegrees(-81.6231, 28.1136, 1500)
                 });
 
-            } catch (error) {
-                console.error(error);
-                statusEl.innerHTML = "STATUS: <span style='color:red'>FAILURE</span>";
+            } catch (e) {
+                status.style.color = "red";
+                status.innerText = "CRASH: " + e.message;
             }
         }
-        startGlobe();
+        init();
     </script>
 </body>
 </html>
+
