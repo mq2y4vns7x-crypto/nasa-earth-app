@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-    <title>NASA Self-Healing Globe</title>
+    <title>NASA 3D Command</title>
+    
     <link href="https://cesium.com/downloads/cesiumjs/releases/1.104/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
     <script src="https://cesium.com/downloads/cesiumjs/releases/1.104/Build/Cesium/Cesium.js"></script>
     
@@ -12,70 +13,95 @@
 
     <style>
         body, html { margin: 0; padding: 0; height: 100%; background: #000; overflow: hidden; color: #00f2ff; font-family: monospace; }
-        #cesiumContainer { width: 100%; height: 100%; }
-        #hud { position: absolute; top: 10px; left: 10px; background: rgba(0, 10, 20, 0.9); padding: 10px; border: 1px solid #00f2ff; z-index: 100; font-size: 11px; }
+        #cesiumContainer { width: 100%; height: 100%; position: absolute; top: 0; left: 0; }
+        #hud { 
+            position: absolute; top: 15px; left: 15px; 
+            background: rgba(0, 15, 30, 0.9); padding: 12px; 
+            border: 1px solid #00f2ff; z-index: 100; pointer-events: none;
+            box-shadow: 0 0 10px rgba(0, 242, 255, 0.5);
+        }
+        .status-on { color: #0f0; }
+        .status-wait { color: #f0f; animation: blink 1s infinite; }
+        @keyframes blink { 50% { opacity: 0; } }
     </style>
 </head>
 <body>
 
     <div id="hud">
-        <b>COMMAND CONSOLE</b><br>
-        <div id="status">INITIATING...</div>
-        <div id="retry-info"></div>
+        <b style="font-size: 14px;">SYS: GLOBAL MONITOR</b><br>
+        <div id="net-status">NETWORK: SEARCHING...</div>
+        <div id="layer-info">LAYERS: INITIALIZING</div>
     </div>
 
     <div id="cesiumContainer"></div>
 
     <script>
-        const statusEl = document.getElementById('status');
-        const retryEl = document.getElementById('retry-info');
-
-        // 1. Setup Viewer with Safety Map
+        // 1. START WITH THE HIGHEST RELIABILITY BASE MAP
+        // This ensures you never see a black screen even if NASA is down
         const viewer = new Cesium.Viewer('cesiumContainer', {
             imageryProvider: new Cesium.ArcGisMapServerImageryProvider({
-                url : 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer'
+                url: 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer'
             }),
             terrainProvider: Cesium.createWorldTerrain(),
-            baseLayerPicker: false
+            baseLayerPicker: false,
+            geocoder: true,
+            selectionIndicator: false,
+            infoBox: false
         });
 
-        // 2. RETRY FUNCTION: This keeps trying to connect to NASA
-        async function connectWithRetry(layerName, url, attempt = 1) {
-            statusEl.innerText = `HANDSHAKE: ${layerName} (ATTEMPT ${attempt})`;
+        const statusEl = document.getElementById('net-status');
+        const layerEl = document.getElementById('layer-info');
+
+        // 2. FORCE GLOBE VISIBILITY
+        viewer.scene.globe.show = true;
+        viewer.scene.globe.baseColor = Cesium.Color.BLACK;
+        viewer.scene.skyAtmosphere.show = true;
+
+        // 3. AUTO-RETRY LOGIC FOR NASA
+        async function loadNasaLayer(attempt = 1) {
+            statusEl.innerHTML = `NASA: <span class="status-wait">SYNC ATTEMPT ${attempt}</span>`;
             
             try {
-                const provider = new Cesium.WebMapTileServiceImageryProvider({ url: url, layer: layerName });
-                
-                // Test if the server actually sends a response
-                await provider.readyPromise; 
-                
-                viewer.imageryLayers.addImageryProvider(provider);
-                statusEl.innerText = `STATUS: ${layerName} CONNECTED`;
-                retryEl.innerText = "";
-                console.log(`${layerName} success!`);
-                
-            } catch (error) {
-                console.error(`${layerName} failed:`, error);
-                const waitTime = Math.min(2 ** attempt * 1000, 30000); // Wait up to 30 seconds
-                retryEl.innerText = `FAILED. RETRYING IN ${waitTime/1000}s...`;
-                
-                setTimeout(() => {
-                    connectWithRetry(layerName, url, attempt + 1);
-                }, waitTime);
+                const nasaProvider = new Cesium.WebMapTileServiceImageryProvider({
+                    url: "https://gibs.earthdata.nasa.gov/wmts/epsg4326/best/wmts.cgi?Service=WMTS&Request=GetTile&Version=1.0.0&Layer=VIIRS_SNPP_CorrectedReflectance_TrueColor&TileMatrixSet=250m&TileMatrix={TileMatrix}&TileRow={TileRow}&TileCol={TileCol}&Style=default&Format=image/jpeg",
+                    layer: "VIIRS_SNPP_CorrectedReflectance_TrueColor",
+                    tileMatrixSetID: "250m",
+                    maximumLevel: 8
+                });
+
+                // The "Handshake"
+                viewer.imageryLayers.addImageryProvider(nasaProvider);
+                statusEl.innerHTML = `NASA: <span class="status-on">CONNECTED</span>`;
+                console.log("NASA Layer Handshake Successful");
+
+            } catch (e) {
+                console.error("NASA Sync Failed:", e);
+                let wait = Math.min(2 ** attempt * 1000, 10000);
+                setTimeout(() => loadNasaLayer(attempt + 1), wait);
             }
         }
 
-        // 3. START CONNECTIONS
-        const nasaUrl = "https://gibs.earthdata.nasa.gov/wmts/epsg4326/best/wmts.cgi?Service=WMTS&Request=GetTile&Version=1.0.0&Layer=VIIRS_SNPP_CorrectedReflectance_TrueColor&TileMatrixSet=250m&TileMatrix={TileMatrix}&TileRow={TileRow}&TileCol={TileCol}&Style=default&Format=image/jpeg";
-        
-        connectWithRetry("VIIRS_SNPP_CorrectedReflectance_TrueColor", nasaUrl);
-
-        // 4. ADD 3D BUILDINGS & CAMERA
+        // 4. ADD 3D BUILDINGS (High Detail)
         viewer.scene.primitives.add(Cesium.createOsmBuildings());
+
+        // 5. CAMERA START (Space to Haines City)
+        // We start high up to avoid the "Underground" bug
+        viewer.camera.setView({
+            destination: Cesium.Cartesian3.fromDegrees(-81.6231, 28.1136, 5000000)
+        });
+
         viewer.camera.flyTo({
             destination: Cesium.Cartesian3.fromDegrees(-81.6231, 28.1136, 1500),
-            orientation: { pitch: Cesium.Math.toRadians(-35) }
+            orientation: {
+                pitch: Cesium.Math.toRadians(-35),
+                heading: 0
+            },
+            duration: 6
         });
+
+        // Start NASA sync after camera starts moving
+        setTimeout(() => loadNasaLayer(), 2000);
+
     </script>
 </body>
 </html>
