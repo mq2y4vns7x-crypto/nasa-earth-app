@@ -3,40 +3,61 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-    <title>Atmospheric Earth v1.3</title>
+    <title>NASA GPS Control v1.5</title>
     <script src="https://cesium.com/downloads/cesiumjs/releases/1.104/Build/Cesium/Cesium.js"></script>
     <link href="https://cesium.com/downloads/cesiumjs/releases/1.104/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
     <style>
         body { margin: 0; background: #000; overflow: hidden; }
         #cesiumContainer { width: 100%; height: 100%; position: absolute; }
-        #hud { position: absolute; top: 10px; left: 10px; color: #00f2ff; background: rgba(0,10,30,0.85); padding: 10px; z-index: 10; font-family: monospace; border: 1px solid #00f2ff; box-shadow: 0 0 10px #00f2ff; }
+        
+        /* HUD Style */
+        #hud { 
+            position: absolute; top: 10px; left: 10px; color: #00f2ff; 
+            background: rgba(0,10,30,0.85); padding: 12px; z-index: 10; 
+            font-family: 'Courier New', monospace; border: 1px solid #00f2ff; 
+            box-shadow: 0 0 15px rgba(0, 242, 255, 0.4);
+        }
+
+        /* GPS Button Style */
+        #gpsBtn {
+            position: absolute; bottom: 30px; right: 20px; z-index: 100;
+            background: rgba(0, 40, 80, 0.9); color: #00f2ff;
+            border: 2px solid #00f2ff; padding: 15px; border-radius: 50%;
+            width: 60px; height: 60px; font-weight: bold; cursor: pointer;
+            box-shadow: 0 0 20px #00f2ff; font-size: 12px;
+            display: flex; align-items: center; justify-content: center;
+            text-align: center;
+        }
+        #gpsBtn:active { background: #00f2ff; color: #000; }
     </style>
 </head>
 <body>
-    <div id="hud">SYSTEM v1.3: <span id="status">INIT...</span></div>
+    <div id="hud">
+        <b>SATELLITE FEED v1.5</b><br>
+        <div id="status">GPS READY</div>
+    </div>
+
+    <div id="gpsBtn" onclick="findMe()">GPS</div>
+    
     <div id="cesiumContainer"></div>
 
     <script>
         const myToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI5OWViZTU0OS01ZDc2LTQ4NmQtYmRhMy04ZTU2MjA4MTkzMmQiLCJpZCI6MzczOTE1LCJpYXQiOjE3NjcyMDQxMzN9.dx0uUUh5Tombo75mdeWH7octN0XnaJyHiSHYLcrKgjQ';
+        let viewer;
 
         async function init() {
-            const status = document.getElementById('status');
             try {
                 Cesium.Ion.defaultAccessToken = myToken.trim();
 
-                const viewer = new Cesium.Viewer('cesiumContainer', {
+                viewer = new Cesium.Viewer('cesiumContainer', {
                     baseLayerPicker: false, animation: false, timeline: false,
                     terrainProvider: await Cesium.createWorldTerrainAsync(),
-                    // 1. ADD ATMOSPHERE
                     skyAtmosphere: new Cesium.SkyAtmosphere()
                 });
 
-                // 2. ENABLE FOG (Makes the horizon look real)
-                viewer.scene.fog.enabled = true;
-                viewer.scene.fog.density = 0.0001;
-
-                // 3. ENABLE LIGHTING (Sunlight and Shadows)
+                // Visual Settings
                 viewer.scene.globe.enableLighting = true;
+                viewer.scene.fog.enabled = true;
 
                 const imagery = await Cesium.createWorldImageryAsync();
                 viewer.imageryLayers.addImageryProvider(imagery);
@@ -44,22 +65,47 @@
                 const buildings = await Cesium.createOsmBuildingsAsync();
                 viewer.scene.primitives.add(buildings);
 
-                // LOCK ZOOM FOR QUALITY
+                // Lock Zoom for Quality
                 viewer.scene.screenSpaceCameraController.minimumZoomDistance = 300;
 
-                status.innerText = "ATMOSPHERE ONLINE";
-                
+                // Initial Fly-to (Haines City)
                 viewer.camera.flyTo({
                     destination: Cesium.Cartesian3.fromDegrees(-81.6231, 28.1136, 1200),
-                    orientation: { pitch: Cesium.Math.toRadians(-25) },
-                    duration: 4
+                    duration: 3
                 });
+
             } catch (e) {
-                status.innerText = "CRASH: " + e.message;
+                document.getElementById('status').innerText = "SYSTEM ERROR";
             }
         }
+
+        // GPS FUNCTION
+        function findMe() {
+            const status = document.getElementById('status');
+            status.innerText = "LOCATING...";
+
+            if ("geolocation" in navigator) {
+                navigator.geolocation.getCurrentPosition((position) => {
+                    const lat = position.coords.latitude;
+                    const lon = position.coords.longitude;
+
+                    status.innerText = "LOCK ACQUIRED";
+                    
+                    viewer.camera.flyTo({
+                        destination: Cesium.Cartesian3.fromDegrees(lon, lat, 1000),
+                        orientation: { pitch: Cesium.Math.toRadians(-35) },
+                        duration: 4
+                    });
+                }, (err) => {
+                    status.innerText = "GPS DENIED";
+                    alert("Please enable location services in your browser.");
+                });
+            } else {
+                status.innerText = "GPS NOT SUPPORTED";
+            }
+        }
+
         init();
     </script>
 </body>
 </html>
-
