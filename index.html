@@ -3,53 +3,73 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-    <title>NASA 3D Command</title>
+    <title>NASA 3D Global Command</title>
+    
     <link href="https://cesium.com/downloads/cesiumjs/releases/1.104/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
     <script src="https://cesium.com/downloads/cesiumjs/releases/1.104/Build/Cesium/Cesium.js"></script>
+    
     <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
     <script>eruda.init();</script>
+
     <style>
+        /* This forces the map to fill your entire phone screen */
         body, html { margin: 0; padding: 0; height: 100%; background: #000; overflow: hidden; color: #00f2ff; font-family: monospace; }
         #cesiumContainer { width: 100%; height: 100%; position: absolute; }
-        #hud { position: absolute; top: 10px; left: 10px; background: rgba(0, 10, 25, 0.9); padding: 10px; border: 1px solid #00f2ff; z-index: 100; pointer-events: none; }
+        
+        /* The "Mission Control" Box in the top corner */
+        #hud { 
+            position: absolute; top: 15px; left: 15px; 
+            background: rgba(0, 15, 30, 0.9); padding: 12px; 
+            border: 1px solid #00f2ff; z-index: 100; pointer-events: none;
+            box-shadow: 0 0 10px rgba(0, 242, 255, 0.5);
+            font-size: 14px;
+        }
     </style>
 </head>
 <body>
-    <div id="hud"><b>COMMAND CENTER</b><div id="status">INIT...</div></div>
+
+    <div id="hud">
+        <b>MISSION CONTROL</b><br>
+        <div id="status">INITIALIZING SYSTEM...</div>
+    </div>
+
     <div id="cesiumContainer"></div>
 
     <script>
+        // =========================================================
+        // 🛑 STEP 1: PASTE YOUR CESIUM ION TOKEN BELOW
+        // =========================================================
+        Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJlNWJmODlhZi0zM2ZjLTQ0ZWYtYmYxYy1lNDgyZTU5NzZmNjAiLCJpZCI6MzczOTE1LCJpYXQiOjE3NjcxOTQyNzd9.r11-OQX-T-lSDbRrfEpfiaP2CRKUKnVXKIzIcSlxkeE';
+
         async function startGlobe() {
             const statusEl = document.getElementById('status');
 
             try {
-                // 1. Setup the Base Layer (Using OpenStreetMap to bypass Token Check)
-                const baseLayerProvider = new Cesium.OpenStreetMapImageryProvider({
-                    url: 'https://a.tile.openstreetmap.org/'
-                });
-
-                // 2. Initialize Viewer with the new 'baseLayer' property
+                // STEP 2: Load the 3D Terrain (Async method for 2025)
+                statusEl.innerText = "LOADING TERRAIN...";
+                
                 const viewer = new Cesium.Viewer('cesiumContainer', {
-                    baseLayer: new Cesium.ImageryLayer(baseLayerProvider),
+                    terrainProvider: await Cesium.createWorldTerrainAsync(),
                     baseLayerPicker: false,
                     geocoder: true,
                     timeline: false,
                     animation: false,
-                    terrainProvider: await Cesium.createWorldTerrainAsync() // New Async Method
+                    selectionIndicator: false,
+                    infoBox: false
                 });
 
-                // Hide the Ion warning pop-up and force visibility
-                viewer.cesiumWidget.creditContainer.style.display = "none";
+                // STEP 3: Configure Visibility (Fixes Black Screen Issues)
+                viewer.scene.globe.enableLighting = false; // Keep the sun "on" all the time
                 viewer.scene.globe.show = true;
-                viewer.scene.globe.enableLighting = false;
+                viewer.cesiumWidget.creditContainer.style.display = "none"; // Hide small text at bottom
 
-                // 3. Load 3D Buildings (New Async Method)
-                statusEl.innerText = "LOADING BUILDINGS...";
-                const buildingsTileset = await Cesium.createOsmBuildingsAsync();
-                viewer.scene.primitives.add(buildingsTileset);
+                // STEP 4: Add 3D Buildings
+                statusEl.innerText = "LOADING 3D CITIES...";
+                const buildings = await Cesium.createOsmBuildingsAsync();
+                viewer.scene.primitives.add(buildings);
 
-                // 4. Connect to NASA GIBS
-                statusEl.innerText = "SYNCING NASA...";
+                // STEP 5: Add NASA Satellite Layer (GIBS)
+                statusEl.innerText = "SYNCING NASA FEED...";
                 const nasaLayer = new Cesium.WebMapTileServiceImageryProvider({
                     url: "https://gibs.earthdata.nasa.gov/wmts/epsg4326/best/wmts.cgi?Service=WMTS&Request=GetTile&Version=1.0.0&Layer=VIIRS_SNPP_CorrectedReflectance_TrueColor&TileMatrixSet=250m&TileMatrix={TileMatrix}&TileRow={TileRow}&TileCol={TileCol}&Style=default&Format=image/jpeg",
                     layer: "VIIRS_SNPP_CorrectedReflectance_TrueColor",
@@ -57,20 +77,24 @@
                 });
                 viewer.imageryLayers.addImageryProvider(nasaLayer);
 
+                // STEP 6: Launch to Haines City, Florida
                 statusEl.innerHTML = "SYSTEM: <span style='color:#0f0'>ONLINE</span>";
-
-                // 5. Jump to Haines City, Florida
+                
                 viewer.camera.flyTo({
-                    destination: Cesium.Cartesian3.fromDegrees(-81.6231, 28.1136, 1500),
-                    orientation: { pitch: Cesium.Math.toRadians(-35) }
+                    destination: Cesium.Cartesian3.fromDegrees(-81.6231, 28.1136, 1500), // 1500 meters high
+                    orientation: { pitch: Cesium.Math.toRadians(-35) },
+                    duration: 5
                 });
 
             } catch (error) {
+                // If the token is wrong, this error will show up
                 console.error("Critical Failure:", error);
-                statusEl.innerHTML = "SYSTEM: <span style='color:#f00'>TOKEN ERROR - RESTARTING</span>";
+                statusEl.innerHTML = "SYSTEM: <span style='color:#f00'>TOKEN ERROR</span>";
+                alert("Error: Please check your API Token in the code!");
             }
         }
 
+        // Start the engine
         startGlobe();
     </script>
 </body>
