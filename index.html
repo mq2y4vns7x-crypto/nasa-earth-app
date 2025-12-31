@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-    <title>NASA 3D - Modern Build</title>
+    <title>NASA 3D Command</title>
     <link href="https://cesium.com/downloads/cesiumjs/releases/1.104/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
     <script src="https://cesium.com/downloads/cesiumjs/releases/1.104/Build/Cesium/Cesium.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
@@ -15,62 +15,63 @@
     </style>
 </head>
 <body>
-    <div id="hud"><b>MISSION CONTROL</b><div id="status">INIT...</div></div>
+    <div id="hud"><b>COMMAND CENTER</b><div id="status">INIT...</div></div>
     <div id="cesiumContainer"></div>
 
     <script>
-        // 1. SETUP THE BASE LAYER (OpenStreetMap - No Token Required)
-        const baseLayer = new Cesium.ImageryLayer(new Cesium.OpenStreetMapImageryProvider({
-            url: 'https://a.tile.openstreetmap.org/'
-        }));
+        async function startGlobe() {
+            const statusEl = document.getElementById('status');
 
-        // 2. INITIALIZE VIEWER (Using new 'baseLayer' property)
-        const viewer = new Cesium.Viewer('cesiumContainer', {
-            baseLayer: baseLayer,
-            baseLayerPicker: false,
-            geocoder: true,
-            timeline: false,
-            animation: false
-        });
-
-        // Hide the Ion warning pop-up
-        viewer.cesiumWidget.creditContainer.style.display = "none";
-        viewer.scene.globe.enableLighting = false;
-
-        const statusEl = document.getElementById('status');
-
-        async function setupWorld() {
             try {
-                // 3. LOAD 3D BUILDINGS (New Async Method)
-                statusEl.innerText = "LOADING 3D BUILDINGS...";
-                const buildingTileset = await Cesium.createOsmBuildingsAsync();
-                viewer.scene.primitives.add(buildingTileset);
+                // 1. Setup the Base Layer (Using OpenStreetMap to bypass Token Check)
+                const baseLayerProvider = new Cesium.OpenStreetMapImageryProvider({
+                    url: 'https://a.tile.openstreetmap.org/'
+                });
 
-                // 4. LOAD NASA (Layer on top)
+                // 2. Initialize Viewer with the new 'baseLayer' property
+                const viewer = new Cesium.Viewer('cesiumContainer', {
+                    baseLayer: new Cesium.ImageryLayer(baseLayerProvider),
+                    baseLayerPicker: false,
+                    geocoder: true,
+                    timeline: false,
+                    animation: false,
+                    terrainProvider: await Cesium.createWorldTerrainAsync() // New Async Method
+                });
+
+                // Hide the Ion warning pop-up and force visibility
+                viewer.cesiumWidget.creditContainer.style.display = "none";
+                viewer.scene.globe.show = true;
+                viewer.scene.globe.enableLighting = false;
+
+                // 3. Load 3D Buildings (New Async Method)
+                statusEl.innerText = "LOADING BUILDINGS...";
+                const buildingsTileset = await Cesium.createOsmBuildingsAsync();
+                viewer.scene.primitives.add(buildingsTileset);
+
+                // 4. Connect to NASA GIBS
                 statusEl.innerText = "SYNCING NASA...";
-                const nasaProvider = new Cesium.WebMapTileServiceImageryProvider({
+                const nasaLayer = new Cesium.WebMapTileServiceImageryProvider({
                     url: "https://gibs.earthdata.nasa.gov/wmts/epsg4326/best/wmts.cgi?Service=WMTS&Request=GetTile&Version=1.0.0&Layer=VIIRS_SNPP_CorrectedReflectance_TrueColor&TileMatrixSet=250m&TileMatrix={TileMatrix}&TileRow={TileRow}&TileCol={TileCol}&Style=default&Format=image/jpeg",
                     layer: "VIIRS_SNPP_CorrectedReflectance_TrueColor",
                     tileMatrixSetID: "250m"
                 });
-                viewer.imageryLayers.addImageryProvider(nasaProvider);
+                viewer.imageryLayers.addImageryProvider(nasaLayer);
 
                 statusEl.innerHTML = "SYSTEM: <span style='color:#0f0'>ONLINE</span>";
 
-                // 5. JUMP TO FLORIDA
+                // 5. Jump to Haines City, Florida
                 viewer.camera.flyTo({
-                    destination: Cesium.Cartesian3.fromDegrees(-81.6231, 28.1136, 2500),
+                    destination: Cesium.Cartesian3.fromDegrees(-81.6231, 28.1136, 1500),
                     orientation: { pitch: Cesium.Math.toRadians(-35) }
                 });
 
             } catch (error) {
-                console.error("Setup failed:", error);
-                statusEl.innerHTML = "SYSTEM: <span style='color:#f00'>ERROR - CHECK CONSOLE</span>";
+                console.error("Critical Failure:", error);
+                statusEl.innerHTML = "SYSTEM: <span style='color:#f00'>TOKEN ERROR - RESTARTING</span>";
             }
         }
 
-        setupWorld();
+        startGlobe();
     </script>
 </body>
 </html>
-
