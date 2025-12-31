@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <title>NASA Space Hunter - Live</title>
+    
+    <link href="https://cesium.com/downloads/cesiumjs/releases/1.104/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+    <script src="https://cesium.com/downloads/cesiumjs/releases/1.104/Build/Cesium/Cesium.js"></script>
+
+    <style>
+        body, html { margin: 0; padding: 0; height: 100%; background: #000; overflow: hidden; }
+        #cesiumContainer { width: 100%; height: 100%; }
+        #overlay {
+            position: absolute; top: 20px; left: 20px; z-index: 5;
+            background: rgba(0, 20, 40, 0.8); color: #00ffcc;
+            padding: 15px; border: 1px solid #00ffcc;
+            font-family: 'Courier New', monospace; border-radius: 8px;
+            pointer-events: none; text-shadow: 0 0 5px #00ffcc;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="overlay">
+        <div style="font-size: 1.2em; font-weight: bold;">MISSION CONTROL</div>
+        <hr style="border: 0.5px solid #00ffcc;">
+        <div id="status">INITIATING NASA LINK...</div>
+        <div id="dataCount">SCANNING SECTOR...</div>
+    </div>
+
+    <div id="cesiumContainer"></div>
+
+    <script>
+        // 1. SETUP REALISTIC NASA IMAGERY (GIBS)
+        // This replaces the standard map with NASA's MODIS satellite photos
+        const nasaGibsProvider = new Cesium.WebMapTileServiceImageryProvider({
+            url: "https://gibs.earthdata.nasa.gov/wmts/epsg4326/best/wmts.cgi?Service=WMTS&Request=GetTile&Version=1.0.0&Layer=MODIS_Terra_CorrectedReflectance_TrueColor&TileMatrixSet=250m&TileMatrix={TileMatrix}&TileRow={TileRow}&TileCol={TileCol}&Style=default&Format=image/jpeg&Time=2025-12-30",
+            layer: "MODIS_Terra_CorrectedReflectance_TrueColor",
+            style: "default",
+            format: "image/jpeg",
+            tileMatrixSetID: "250m",
+            maximumLevel: 8,
+            credit: "NASA Global Imagery Browse Services"
+        });
+
+        // 2. INITIALIZE ENGINE
+        const viewer = new Cesium.Viewer('cesiumContainer', {
+            imageryProvider: nasaGibsProvider,
+            baseLayerPicker: false,
+            geocoder: false,
+            homeButton: false,
+            timeline: true,
+            animation: true,
+            infoBox: true,
+            selectionIndicator: true,
+            navigationHelpButton: false,
+            sceneModePicker: false
+        });
+
+        // 3. NASA ASTEROID DATA CONNECTION
+        async function connectToNasa() {
+            // Use 'DEMO_KEY' or paste your actual NASA API key here
+            const apiKey = 'DEMO_KEY'; 
+            const today = new Date().toISOString().split('T')[0];
+            const url = `https://api.nasa.gov/neo/rest/v1/feed?start_date=${today}&end_date=${today}&api_key=${apiKey}`;
+
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+                const asteroids = data.near_earth_objects[today];
+                
+                document.getElementById('status').innerText = "SYSTEM: ONLINE";
+                document.getElementById('dataCount').innerText = `OBJECTS DETECTED: ${asteroids.length}`;
+
+                asteroids.forEach(neo => {
+                    // Miss distance in KM (NASA's data)
+                    const km = parseFloat(neo.close_approach_data[0].miss_distance.kilometers);
+                    
+                    // Simple orbital math to spread them out around Earth
+                    const angle = Math.random() * Math.PI * 2;
+                    const x = km * Math.cos(angle);
+                    const y = km * Math.sin(angle);
+
+                    viewer.entities.add({
+                        name: neo.name,
+                        position: Cesium.Cartesian3.fromElements(x, y, 1500000), 
+                        point: {
+                            pixelSize: neo.is_potentially_hazardous_asteroid ? 12 : 8,
+                            color: neo.is_potentially_hazardous_asteroid ? Cesium.Color.RED : Cesium.Color.AQUA,
+                            outlineWidth: 2,
+                            outlineColor: Cesium.Color.WHITE
+                        },
+                        description: `
+                            <b>Velocity:</b> ${neo.close_approach_data[0].relative_velocity.kilometers_per_hour} km/h<br>
+                            <b>Hazardous:</b> ${neo.is_potentially_hazardous_asteroid ? 'YES' : 'NO'}<br>
+                            <b>Diameter:</b> ${neo.estimated_diameter.meters.estimated_diameter_max.toFixed(2)}m
+                        `
+                    });
+                });
+
+                // Auto-zoom to show the asteroid field
+                viewer.zoomTo(viewer.entities);
+
+            } catch (err) {
+                document.getElementById('status').innerText = "NASA LINK FAILED";
+                console.error(err);
+            }
+        }
+
+        connectToNasa();
+    </script>
+</body>
+</html>
