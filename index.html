@@ -3,99 +3,72 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-    <title>NASA 3D Global Command</title>
-    
+    <title>NASA 3D - Fresh Start</title>
     <link href="https://cesium.com/downloads/cesiumjs/releases/1.104/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
     <script src="https://cesium.com/downloads/cesiumjs/releases/1.104/Build/Cesium/Cesium.js"></script>
-    
     <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
     <script>eruda.init();</script>
-
     <style>
-        /* This forces the map to fill your entire phone screen */
-        body, html { margin: 0; padding: 0; height: 100%; background: #000; overflow: hidden; color: #00f2ff; font-family: monospace; }
+        body, html { margin: 0; padding: 0; height: 100%; background: #000; color: #00f2ff; font-family: monospace; }
         #cesiumContainer { width: 100%; height: 100%; position: absolute; }
-        
-        /* The "Mission Control" Box in the top corner */
-        #hud { 
-            position: absolute; top: 15px; left: 15px; 
-            background: rgba(0, 15, 30, 0.9); padding: 12px; 
-            border: 1px solid #00f2ff; z-index: 100; pointer-events: none;
-            box-shadow: 0 0 10px rgba(0, 242, 255, 0.5);
-            font-size: 14px;
-        }
+        #hud { position: absolute; top: 15px; left: 15px; background: rgba(0, 20, 40, 0.9); padding: 10px; border: 1px solid #00f2ff; z-index: 1000; }
     </style>
 </head>
 <body>
-
-    <div id="hud">
-        <b>MISSION CONTROL</b><br>
-        <div id="status">INITIALIZING SYSTEM...</div>
-    </div>
-
+    <div id="hud"><b>AUTH STATUS:</b><br><div id="status">INIT...</div></div>
     <div id="cesiumContainer"></div>
 
     <script>
-        // =========================================================
-        // 🛑 STEP 1: PASTE YOUR CESIUM ION TOKEN BELOW
-        // =========================================================
-        Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJlNWJmODlhZi0zM2ZjLTQ0ZWYtYmYxYy1lNDgyZTU5NzZmNjAiLCJpZCI6MzczOTE1LCJpYXQiOjE3NjcxOTQyNzd9.r11-OQX-T-lSDbRrfEpfiaP2CRKUKnVXKIzIcSlxkeE';
+        // 🛑 PASTE YOUR BRAND NEW TOKEN HERE
+        const myToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI5OWViZTU0OS01ZDc2LTQ4NmQtYmRhMy04ZTU2MjA4MTkzMmQiLCJpZCI6MzczOTE1LCJpYXQiOjE3NjcyMDQxMzN9.dx0uUUh5Tombo75mdeWH7octN0XnaJyHiSHYLcrKgjQ';
 
-        async function startGlobe() {
-            const statusEl = document.getElementById('status');
+        async function start() {
+            const status = document.getElementById('status');
+            
+            // Clean the token of any accidental mobile spaces
+            const cleanToken = myToken.trim().replace(/['"‘“’”\s]/g, '');
+            Cesium.Ion.defaultAccessToken = cleanToken;
 
             try {
-                // STEP 2: Load the 3D Terrain (Async method for 2025)
-                statusEl.innerText = "LOADING TERRAIN...";
+                status.innerText = "VERIFYING NEW KEY...";
                 
                 const viewer = new Cesium.Viewer('cesiumContainer', {
                     terrainProvider: await Cesium.createWorldTerrainAsync(),
                     baseLayerPicker: false,
                     geocoder: true,
                     timeline: false,
-                    animation: false,
-                    selectionIndicator: false,
-                    infoBox: false
+                    animation: false
                 });
 
-                // STEP 3: Configure Visibility (Fixes Black Screen Issues)
-                viewer.scene.globe.enableLighting = false; // Keep the sun "on" all the time
-                viewer.scene.globe.show = true;
-                viewer.cesiumWidget.creditContainer.style.display = "none"; // Hide small text at bottom
-
-                // STEP 4: Add 3D Buildings
-                statusEl.innerText = "LOADING 3D CITIES...";
+                // Add 3D Buildings
                 const buildings = await Cesium.createOsmBuildingsAsync();
                 viewer.scene.primitives.add(buildings);
 
-                // STEP 5: Add NASA Satellite Layer (GIBS)
-                statusEl.innerText = "SYNCING NASA FEED...";
-                const nasaLayer = new Cesium.WebMapTileServiceImageryProvider({
+                // Add NASA Satellite Imagery
+                const nasa = new Cesium.WebMapTileServiceImageryProvider({
                     url: "https://gibs.earthdata.nasa.gov/wmts/epsg4326/best/wmts.cgi?Service=WMTS&Request=GetTile&Version=1.0.0&Layer=VIIRS_SNPP_CorrectedReflectance_TrueColor&TileMatrixSet=250m&TileMatrix={TileMatrix}&TileRow={TileRow}&TileCol={TileCol}&Style=default&Format=image/jpeg",
                     layer: "VIIRS_SNPP_CorrectedReflectance_TrueColor",
                     tileMatrixSetID: "250m"
                 });
-                viewer.imageryLayers.addImageryProvider(nasaLayer);
+                viewer.imageryLayers.addImageryProvider(nasa);
 
-                // STEP 6: Launch to Haines City, Florida
-                statusEl.innerHTML = "SYSTEM: <span style='color:#0f0'>ONLINE</span>";
-                
+                // Settings to handle zoom and blur
+                viewer.scene.screenSpaceCameraController.minimumZoomDistance = 5.0; 
+                viewer.scene.globe.depthTestAgainstTerrain = true;
+
+                status.innerHTML = "<span style='color:#0f0'>SUCCESS: ONLINE</span>";
+
                 viewer.camera.flyTo({
-                    destination: Cesium.Cartesian3.fromDegrees(-81.6231, 28.1136, 1500), // 1500 meters high
-                    orientation: { pitch: Cesium.Math.toRadians(-35) },
-                    duration: 5
+                    destination: Cesium.Cartesian3.fromDegrees(-81.6231, 28.1136, 1500),
+                    duration: 3
                 });
 
-            } catch (error) {
-                // If the token is wrong, this error will show up
-                console.error("Critical Failure:", error);
-                statusEl.innerHTML = "SYSTEM: <span style='color:#f00'>TOKEN ERROR</span>";
-                alert("Error: Please check your API Token in the code!");
+            } catch (e) {
+                console.error(e);
+                status.innerHTML = "<span style='color:#f00'>FAILED: CHECK TOKEN</span>";
             }
         }
-
-        // Start the engine
-        startGlobe();
+        start();
     </script>
 </body>
 </html>
