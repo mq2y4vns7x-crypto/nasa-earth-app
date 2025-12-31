@@ -3,35 +3,40 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-    <title>NASA Control v1.6</title>
+    <title>NASA Command v1.7</title>
     <script src="https://cesium.com/downloads/cesiumjs/releases/1.104/Build/Cesium/Cesium.js"></script>
     <link href="https://cesium.com/downloads/cesiumjs/releases/1.104/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
     <style>
         body { margin: 0; background: #000; overflow: hidden; }
         #cesiumContainer { width: 100%; height: 100%; position: absolute; }
         
-        /* 🛠️ FIX 1: Moved HUD to the RIGHT so search bar (left) is clear */
+        /* HUD moved to the RIGHT to clear the search bar on the LEFT */
         #hud { 
             position: absolute; top: 10px; right: 10px; color: #00f2ff; 
-            background: rgba(0,10,30,0.85); padding: 12px; z-index: 10; 
+            background: rgba(0,15,35,0.9); padding: 15px; z-index: 100; 
             font-family: 'Courier New', monospace; border: 1px solid #00f2ff; 
-            box-shadow: 0 0 15px rgba(0, 242, 255, 0.4); text-align: right;
+            box-shadow: 0 0 15px rgba(0, 242, 255, 0.5); text-align: right;
+            border-radius: 4px;
         }
 
-        /* 🛠️ FIX 2: Sleek GPS link inside the HUD instead of a big button */
-        #gpsLink {
-            color: lime; text-decoration: underline; cursor: pointer; font-size: 11px;
+        /* GPS Trigger styled as part of the satellite system */
+        .gps-link {
+            color: #00f2ff; text-decoration: none; font-weight: bold;
+            display: block; margin-top: 8px; border-top: 1px solid #00f2ff;
+            padding-top: 8px; cursor: pointer; font-size: 13px;
         }
-        
-        /* Making the Cesium search bar look cleaner */
-        .cesium-viewer-geocoderContainer { margin: 10px; }
+        .gps-link:hover { color: lime; }
+
+        /* Moves search results so they don't cover the screen center */
+        .cesium-viewer-geocoderContainer { top: 10px; left: 10px; position: absolute; }
     </style>
 </head>
 <body>
     <div id="hud">
-        <b>MISSION CONTROL v1.6</b><br>
-        <div id="status">SYSTEM READY</div>
-        <span id="gpsLink" onclick="findMe()">[ TARGET MY LOCATION ]</span>
+        <b>SATELLITE INTERFACE v1.7</b><br>
+        <span id="status">SIGNAL: STABLE</span><br>
+        <div id="coords" style="font-size: 10px; color: #aaa;">POS: SEARCHING...</div>
+        <div class="gps-link" onclick="startGpsLock()">📡 INITIATE GPS LOCK</div>
     </div>
     
     <div id="cesiumContainer"></div>
@@ -46,55 +51,57 @@
 
                 viewer = new Cesium.Viewer('cesiumContainer', {
                     baseLayerPicker: false, animation: false, timeline: false,
-                    geocoder: true, // This is your "type and go" search bar
-                    terrainProvider: await Cesium.createWorldTerrainAsync(),
-                    skyAtmosphere: new Cesium.SkyAtmosphere()
+                    geocoder: true,
+                    terrainProvider: await Cesium.createWorldTerrainAsync()
                 });
 
+                // Visual Engine
+                viewer.scene.skyAtmosphere = new Cesium.SkyAtmosphere();
                 viewer.scene.globe.enableLighting = true;
-                viewer.scene.screenSpaceCameraController.minimumZoomDistance = 250;
+                viewer.scene.screenSpaceCameraController.minimumZoomDistance = 200;
 
                 const imagery = await Cesium.createWorldImageryAsync();
                 viewer.imageryLayers.addImageryProvider(imagery);
-
                 const buildings = await Cesium.createOsmBuildingsAsync();
                 viewer.scene.primitives.add(buildings);
 
-                viewer.camera.flyTo({
-                    destination: Cesium.Cartesian3.fromDegrees(-81.6231, 28.1136, 1200),
-                    duration: 3
+                // Live HUD Updates
+                viewer.camera.changed.addEventListener(() => {
+                    const lat = Cesium.Math.toDegrees(viewer.camera.positionCartographic.latitude).toFixed(4);
+                    const lon = Cesium.Math.toDegrees(viewer.camera.positionCartographic.longitude).toFixed(4);
+                    document.getElementById('coords').innerText = `LAT: ${lat} | LON: ${lon}`;
                 });
 
-            } catch (e) {
-                document.getElementById('status').innerText = "ERROR";
-            }
+            } catch (e) { console.error(e); }
         }
 
-        // 🛠️ FIX 3: High-Accuracy GPS
-        function findMe() {
+        function startGpsLock() {
             const status = document.getElementById('status');
-            status.innerText = "LOCKING GPS...";
-
-            const options = {
-                enableHighAccuracy: true, // Forces phone to be precise
-                timeout: 5000,
-                maximumAge: 0
+            status.innerText = "SIGNAL: SCANNING...";
+            
+            const gpsOptions = {
+                enableHighAccuracy: true, // Forces phone to use real GPS satellites
+                timeout: 10000,           // Wait up to 10 seconds for a lock
+                maximumAge: 0             // Do not use old "neighborhood" locations
             };
 
             navigator.geolocation.getCurrentPosition((pos) => {
-                status.innerText = "TARGET LOCKED";
+                status.innerText = "SIGNAL: LOCKED";
+                status.style.color = "lime";
+                
                 viewer.camera.flyTo({
-                    destination: Cesium.Cartesian3.fromDegrees(pos.coords.longitude, pos.coords.latitude, 800),
+                    destination: Cesium.Cartesian3.fromDegrees(pos.coords.longitude, pos.coords.latitude, 600),
                     orientation: { pitch: Cesium.Math.toRadians(-45) },
                     duration: 4
                 });
             }, (err) => {
-                status.innerText = "GPS TIMEOUT";
-            }, options);
+                status.innerText = "SIGNAL: FAILED";
+                status.style.color = "red";
+                alert("GPS Error: Ensure location services are ON.");
+            }, gpsOptions);
         }
 
         init();
     </script>
 </body>
 </html>
-
