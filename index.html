@@ -3,40 +3,56 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-    <title>NASA Command v1.7</title>
+    <title>NASA Command v1.9</title>
     <script src="https://cesium.com/downloads/cesiumjs/releases/1.104/Build/Cesium/Cesium.js"></script>
     <link href="https://cesium.com/downloads/cesiumjs/releases/1.104/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
     <style>
-        body { margin: 0; background: #000; overflow: hidden; }
+        body { margin: 0; background: #000; overflow: hidden; font-family: 'Courier New', monospace; }
         #cesiumContainer { width: 100%; height: 100%; position: absolute; }
         
-        /* HUD moved to the RIGHT to clear the search bar on the LEFT */
-        #hud { 
-            position: absolute; top: 10px; right: 10px; color: #00f2ff; 
-            background: rgba(0,15,35,0.9); padding: 15px; z-index: 100; 
-            font-family: 'Courier New', monospace; border: 1px solid #00f2ff; 
-            box-shadow: 0 0 15px rgba(0, 242, 255, 0.5); text-align: right;
-            border-radius: 4px;
+        /* 🛠️ SIDEBAR MENU */
+        #sidebar {
+            position: absolute; top: 0; right: -260px;
+            width: 250px; height: 100%; background: rgba(0, 10, 30, 0.95);
+            border-left: 2px solid #00f2ff; color: #00f2ff;
+            transition: 0.4s; z-index: 1000; padding: 20px;
+            box-shadow: -5px 0 20px rgba(0, 242, 255, 0.3);
+        }
+        #sidebar.open { right: 0; }
+        #menuBtn {
+            position: absolute; top: 15px; right: 15px;
+            width: 45px; height: 45px; background: #00f2ff;
+            border: none; border-radius: 5px; cursor: pointer;
+            z-index: 1001; font-weight: bold; font-size: 20px;
         }
 
-        /* GPS Trigger styled as part of the satellite system */
-        .gps-link {
-            color: #00f2ff; text-decoration: none; font-weight: bold;
-            display: block; margin-top: 8px; border-top: 1px solid #00f2ff;
-            padding-top: 8px; cursor: pointer; font-size: 13px;
+        .stat-box { margin-bottom: 20px; border-bottom: 1px solid #004455; padding-bottom: 10px; }
+        .control-btn { 
+            background: none; border: 1px solid #00f2ff; color: #00f2ff; 
+            padding: 8px; width: 100%; cursor: pointer; font-family: inherit; margin-bottom: 10px;
         }
-        .gps-link:hover { color: lime; }
-
-        /* Moves search results so they don't cover the screen center */
-        .cesium-viewer-geocoderContainer { top: 10px; left: 10px; position: absolute; }
     </style>
 </head>
 <body>
-    <div id="hud">
-        <b>SATELLITE INTERFACE v1.7</b><br>
-        <span id="status">SIGNAL: STABLE</span><br>
-        <div id="coords" style="font-size: 10px; color: #aaa;">POS: SEARCHING...</div>
-        <div class="gps-link" onclick="startGpsLock()">📡 INITIATE GPS LOCK</div>
+
+    <button id="menuBtn" onclick="toggleSidebar()">≡</button>
+
+    <div id="sidebar">
+        <div class="stat-box">
+            <h3 style="margin:0">COMMAND v1.9</h3>
+            <p id="status" style="font-size:12px; color:lime">ENCRYPTED CONNECTION</p>
+        </div>
+        
+        <div class="stat-box">
+            <b>POSITION DATA</b><br>
+            <span id="lat-val" style="color:white; font-size:11px">LAT: --</span><br>
+            <span id="lon-val" style="color:white; font-size:11px">LON: --</span>
+        </div>
+
+        <button class="control-btn" onclick="enterWalkMode()" id="walkBtn">🚶 ENTER WALK MODE</button>
+        <button class="control-btn" onclick="startGpsLock()" style="border-color:lime; color:lime;">📡 SYNC GPS LOCK</button>
+        
+        <p style="font-size: 10px; color: #aaa;">*Address search is private and does not track.</p>
     </div>
     
     <div id="cesiumContainer"></div>
@@ -45,63 +61,80 @@
         const myToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI5OWViZTU0OS01ZDc2LTQ4NmQtYmRhMy04ZTU2MjA4MTkzMmQiLCJpZCI6MzczOTE1LCJpYXQiOjE3NjcyMDQxMzN9.dx0uUUh5Tombo75mdeWH7octN0XnaJyHiSHYLcrKgjQ';
         let viewer;
 
+        function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); }
+
         async function init() {
             try {
                 Cesium.Ion.defaultAccessToken = myToken.trim();
 
                 viewer = new Cesium.Viewer('cesiumContainer', {
-                    baseLayerPicker: false, animation: false, timeline: false,
                     geocoder: true,
+                    baseLayerPicker: false, animation: false, timeline: false,
                     terrainProvider: await Cesium.createWorldTerrainAsync()
                 });
 
-                // Visual Engine
+                // ☁️ 1. REAL-TIME CLOUDS & ATMOSPHERE
                 viewer.scene.skyAtmosphere = new Cesium.SkyAtmosphere();
                 viewer.scene.globe.enableLighting = true;
-                viewer.scene.screenSpaceCameraController.minimumZoomDistance = 200;
+                
+                // Add the Cloud Layer (Asset ID 3812 is Earth at Night/Clouds combo)
+                const cloudLayer = await Cesium.IonImageryProvider.fromAssetId(3812);
+                viewer.imageryLayers.addImageryProvider(cloudLayer);
 
-                const imagery = await Cesium.createWorldImageryAsync();
-                viewer.imageryLayers.addImageryProvider(imagery);
-                const buildings = await Cesium.createOsmBuildingsAsync();
+                // 🏢 2. COLORED BUILDINGS (Realistic Textures)
+                const buildings = await Cesium.createOsmBuildingsAsync({
+                    defaultColor: Cesium.Color.fromCssColorString('#dcdcdc')
+                });
                 viewer.scene.primitives.add(buildings);
 
-                // Live HUD Updates
+                // 📍 3. COORDINATE TRACKER
                 viewer.camera.changed.addEventListener(() => {
-                    const lat = Cesium.Math.toDegrees(viewer.camera.positionCartographic.latitude).toFixed(4);
-                    const lon = Cesium.Math.toDegrees(viewer.camera.positionCartographic.longitude).toFixed(4);
-                    document.getElementById('coords').innerText = `LAT: ${lat} | LON: ${lon}`;
+                    const carto = viewer.camera.positionCartographic;
+                    document.getElementById('lat-val').innerText = "LAT: " + Cesium.Math.toDegrees(carto.latitude).toFixed(6);
+                    document.getElementById('lon-val').innerText = "LON: " + Cesium.Math.toDegrees(carto.longitude).toFixed(6);
+                });
+
+                // INITIAL FLY-TO
+                viewer.camera.flyTo({
+                    destination: Cesium.Cartesian3.fromDegrees(-81.6231, 28.1136, 1000),
+                    duration: 3
                 });
 
             } catch (e) { console.error(e); }
         }
 
-        function startGpsLock() {
-            const status = document.getElementById('status');
-            status.innerText = "SIGNAL: SCANNING...";
-            
-            const gpsOptions = {
-                enableHighAccuracy: true, // Forces phone to use real GPS satellites
-                timeout: 10000,           // Wait up to 10 seconds for a lock
-                maximumAge: 0             // Do not use old "neighborhood" locations
-            };
+        // 🚶 4. WALK MODE (First Person)
+        function enterWalkMode() {
+            // Drops camera to street level and tilts to look forward
+            const pos = viewer.camera.positionCartographic;
+            viewer.camera.flyTo({
+                destination: Cesium.Cartesian3.fromDegrees(
+                    Cesium.Math.toDegrees(pos.longitude), 
+                    Cesium.Math.toDegrees(pos.latitude), 
+                    2.5 // 2.5 meters high (Human height)
+                ),
+                orientation: {
+                    pitch: 0, // Look straight ahead
+                    heading: viewer.camera.heading
+                },
+                duration: 2
+            });
+            toggleSidebar();
+            document.getElementById('status').innerText = "MODE: STREET LEVEL";
+        }
 
+        function startGpsLock() {
             navigator.geolocation.getCurrentPosition((pos) => {
-                status.innerText = "SIGNAL: LOCKED";
-                status.style.color = "lime";
-                
                 viewer.camera.flyTo({
-                    destination: Cesium.Cartesian3.fromDegrees(pos.coords.longitude, pos.coords.latitude, 600),
+                    destination: Cesium.Cartesian3.fromDegrees(pos.coords.longitude, pos.coords.latitude, 500),
                     orientation: { pitch: Cesium.Math.toRadians(-45) },
                     duration: 4
                 });
-            }, (err) => {
-                status.innerText = "SIGNAL: FAILED";
-                status.style.color = "red";
-                alert("GPS Error: Ensure location services are ON.");
-            }, gpsOptions);
+            }, null, { enableHighAccuracy: true });
         }
 
         init();
     </script>
 </body>
 </html>
+
