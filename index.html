@@ -3,79 +3,62 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-    <title>Global Command Center</title>
+    <title>Global Command Debug</title>
     <link href="https://cesium.com/downloads/cesiumjs/releases/1.104/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
     <script src="https://cesium.com/downloads/cesiumjs/releases/1.104/Build/Cesium/Cesium.js"></script>
     <style>
-        body, html { margin: 0; padding: 0; height: 100%; background: #000; overflow: hidden; }
+        body, html { margin: 0; padding: 0; height: 100%; background: #000; overflow: hidden; color: #00f2ff; font-family: monospace; }
         #cesiumContainer { width: 100%; height: 100%; position: absolute; }
         #hud { 
             position: absolute; top: 15px; left: 15px; 
-            background: rgba(0, 15, 30, 0.9); padding: 12px; 
-            border: 1px solid #00f2ff; z-index: 100; color: #00f2ff;
-            font-family: monospace; pointer-events: none;
-            box-shadow: 0 0 15px rgba(0, 242, 255, 0.3);
+            background: rgba(0, 15, 30, 0.95); padding: 15px; 
+            border: 1px solid #00f2ff; z-index: 1000; width: 80%;
         }
     </style>
 </head>
 <body>
     <div id="hud">
-        <b>MISSION CONTROL</b><br>
-        <div id="status">STATUS: INITIALIZING...</div>
+        <b>DEBUG CONSOLE</b><br>
+        <div id="status" style="word-wrap: break-word;">INITIALIZING...</div>
     </div>
     <div id="cesiumContainer"></div>
 
     <script>
-        // 1. YOUR TOKEN
-        Cesium.Ion.defaultAccessToken = 'PASTE_YOUR_TOKEN_HERE';
+        // 1. CLEAN YOUR TOKEN
+        const rawToken = 'PASTE_YOUR_TOKEN_HERE';
+        const cleanToken = rawToken.trim().replace(/['"‘“’”\s]/g, "");
+        Cesium.Ion.defaultAccessToken = cleanToken;
 
-        async function startGlobe() {
-            const statusEl = document.getElementById('status');
+        async function start() {
+            const status = document.getElementById('status');
             try {
-                // 2. Initialize Viewer with High-Def Settings
+                status.innerText = "STEP 1: LOADING ENGINE...";
                 const viewer = new Cesium.Viewer('cesiumContainer', {
                     terrainProvider: await Cesium.createWorldTerrainAsync(),
-                    baseLayerPicker: false,
-                    geocoder: true,
-                    timeline: false,
-                    animation: false,
-                    sceneModePicker: false, // Keeps it as a 3D Globe
-                    skyAtmosphere: new Cesium.SkyAtmosphere(), // Adds the blue air layer
+                    baseLayerPicker: false, animation: false, timeline: false
                 });
 
-                // 3. IMPROVE ZOOM & QUALITY
-                viewer.scene.globe.enableLighting = true; // Adds shadows and sun
-                viewer.scene.screenSpaceCameraController.minimumZoomDistance = 10.0; // Stop zoom glitch
-                viewer.scene.fog.enabled = true; // Makes the horizon look realistic
-
-                // 4. LOAD HIGH-RES EARTH
-                const imagery = await Cesium.createWorldImageryAsync({
-                    style: Cesium.IonWorldImageryStyle.AERIAL_WITH_LABELS
-                });
+                status.innerText = "STEP 2: LOADING IMAGERY...";
+                const imagery = await Cesium.createWorldImageryAsync();
                 viewer.imageryLayers.addImageryProvider(imagery);
 
-                // 5. LOAD 3D BUILDINGS
+                status.innerText = "STEP 3: LOADING BUILDINGS...";
                 const buildings = await Cesium.createOsmBuildingsAsync();
                 viewer.scene.primitives.add(buildings);
 
-                statusEl.innerHTML = "STATUS: <span style='color:lime'>ONLINE</span>";
-
-                // 6. TARGET: HAINES CITY
+                status.innerHTML = "<span style='color:lime'>SYSTEM ONLINE</span>";
                 viewer.camera.flyTo({
-                    destination: Cesium.Cartesian3.fromDegrees(-81.6231, 28.1136, 1200),
-                    orientation: { 
-                        pitch: Cesium.Math.toRadians(-25),
-                        heading: Cesium.Math.toRadians(0) 
-                    },
-                    duration: 5
+                    destination: Cesium.Cartesian3.fromDegrees(-81.6231, 28.1136, 1500),
+                    duration: 3
                 });
 
-            } catch (error) {
-                console.error(error);
-                statusEl.innerHTML = "STATUS: <span style='color:red'>FAILURE</span>";
+            } catch (e) {
+                // THIS PRINTS THE REAL ERROR TO YOUR SCREEN
+                status.innerHTML = "<span style='color:red'>CRASH AT " + status.innerText + "</span><br><br>ERROR: " + e.message;
+                console.error(e);
             }
         }
-        startGlobe();
+        start();
     </script>
 </body>
 </html>
