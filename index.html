@@ -3,69 +3,70 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-    <title>NASA 3D - Rescue Mode</title>
+    <title>NASA 3D Global - Fixed</title>
     <link href="https://cesium.com/downloads/cesiumjs/releases/1.104/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
     <script src="https://cesium.com/downloads/cesiumjs/releases/1.104/Build/Cesium/Cesium.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
-    <script>eruda.init();</script>
     <style>
-        body, html { margin: 0; padding: 0; height: 100%; background: #000; color: #00f2ff; font-family: monospace; overflow: hidden; }
+        body, html { margin: 0; padding: 0; height: 100%; background: #000; overflow: hidden; }
         #cesiumContainer { width: 100%; height: 100%; position: absolute; }
-        #hud { position: absolute; top: 10px; left: 10px; background: rgba(0, 10, 20, 0.9); padding: 10px; border: 1px solid #00f2ff; z-index: 1000; }
+        #hud { 
+            position: absolute; top: 15px; left: 15px; 
+            background: rgba(0, 15, 30, 0.9); padding: 12px; 
+            border: 1px solid #00f2ff; z-index: 100; color: #00f2ff;
+            font-family: monospace; pointer-events: none;
+        }
     </style>
 </head>
 <body>
-    <div id="hud"><b>MISSION CONTROL</b><br><div id="status">INITIATING...</div></div>
+    <div id="hud">
+        <b>SYSTEM STATUS</b><br>
+        <div id="status">CONNECTING...</div>
+    </div>
     <div id="cesiumContainer"></div>
 
     <script>
-        // 🛑 PASTE YOUR NEW TOKEN INSIDE THESE QUOTES
-        const mySecretToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI5OWViZTU0OS01ZDc2LTQ4NmQtYmRhMy04ZTU2MjA4MTkzMmQiLCJpZCI6MzczOTE1LCJpYXQiOjE3NjcyMDQxMzN9.dx0uUUh5Tombo75mdeWH7octN0XnaJyHiSHYLcrKgjQ';
+        // 1. YOUR TOKEN GOES HERE
+        Cesium.Ion.defaultAccessToken = 'PASTE_YOUR_TOKEN_HERE';
 
-        async function start() {
-            const status = document.getElementById('status');
-            
-            // This line fixes mobile "Smart Quotes" and accidental spaces
-            const cleanToken = mySecretToken.trim().replace(/[\u201C\u201D\u2018\u2019\s]/g, "");
-            Cesium.Ion.defaultAccessToken = cleanToken;
+        async function startGlobe() {
+            const statusEl = document.getElementById('status');
 
             try {
-                status.innerText = "AUTHENTICATING...";
-
+                // 2. Initialize the Viewer
                 const viewer = new Cesium.Viewer('cesiumContainer', {
                     terrainProvider: await Cesium.createWorldTerrainAsync(),
                     baseLayerPicker: false,
-                    geocoder: true,
                     timeline: false,
-                    animation: false
+                    animation: false,
+                    geocoder: true
                 });
 
-                // Add 3D Buildings
+                // 3. FIX: Use Standard World Imagery instead of NASA
+                // This prevents the "Failed to obtain image tile" error
+                const imagery = await Cesium.createWorldImageryAsync({
+                    style: Cesium.IonWorldImageryStyle.AERIAL
+                });
+                viewer.imageryLayers.addImageryProvider(imagery);
+
+                // 4. Load 3D Buildings
                 const buildings = await Cesium.createOsmBuildingsAsync();
                 viewer.scene.primitives.add(buildings);
 
-                // Add NASA Satellite Imagery
-                const nasa = new Cesium.WebMapTileServiceImageryProvider({
-                    url: "https://gibs.earthdata.nasa.gov/wmts/epsg4326/best/wmts.cgi?Service=WMTS&Request=GetTile&Version=1.0.0&Layer=VIIRS_SNPP_CorrectedReflectance_TrueColor&TileMatrixSet=250m&TileMatrix={TileMatrix}&TileRow={TileRow}&TileCol={TileCol}&Style=default&Format=image/jpeg",
-                    layer: "VIIRS_SNPP_CorrectedReflectance_TrueColor",
-                    tileMatrixSetID: "250m"
-                });
-                viewer.imageryLayers.addImageryProvider(nasa);
+                statusEl.innerHTML = "EARTH: <span style='color:lime'>LOADED</span>";
 
-                // Flight to Haines City
-                status.innerHTML = "<span style='color:#0f0'>SUCCESS: ONLINE</span>";
+                // 5. Jump to Florida
                 viewer.camera.flyTo({
                     destination: Cesium.Cartesian3.fromDegrees(-81.6231, 28.1136, 1500),
-                    duration: 3
+                    duration: 4
                 });
 
-            } catch (e) {
-                console.error("Token Failure:", e);
-                status.innerHTML = "<span style='color:#f00'>FAIL: TOKEN REJECTED</span>";
+            } catch (error) {
+                console.error(error);
+                statusEl.innerHTML = "EARTH: <span style='color:red'>ERROR</span>";
             }
         }
-        start();
+
+        startGlobe();
     </script>
 </body>
 </html>
-
