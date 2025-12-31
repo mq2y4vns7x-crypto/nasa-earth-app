@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-    <title>HD Earth Fix</title>
+    <title>HD Earth Mission</title>
     <script src="https://cesium.com/downloads/cesiumjs/releases/1.104/Build/Cesium/Cesium.js"></script>
     <link href="https://cesium.com/downloads/cesiumjs/releases/1.104/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
     <style>
@@ -13,18 +13,20 @@
     </style>
 </head>
 <body>
-    <div id="hud">SYSTEM: <span id="status">WAITING FOR TOKEN...</span></div>
+    <div id="hud">SYSTEM: <span id="status">CHECKING TOKEN...</span></div>
     <div id="cesiumContainer"></div>
 
     <script>
-        // 🛑 PASTE YOUR TOKEN EXACTLY BETWEEN THE ' ' MARKS
-        const myToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI5OWViZTU0OS01ZDc2LTQ4NmQtYmRhMy04ZTU2MjA4MTkzMmQiLCJpZCI6MzczOTE1LCJpYXQiOjE3NjcyMDQxMzN9.dx0uUUh5Tombo75mdeWH7octN0XnaJyHiSHYLcrKgjQ';
+        // 🛑 PASTE YOUR TOKEN BELOW - DO NOT DELETE THE ' ' MARKS
+        const myToken = 'PASTE_YOUR_TOKEN_HERE';
 
         async function init() {
             const status = document.getElementById('status');
             
-            if (myToken.includes('PASTE_YOUR_TOKEN')) {
-                status.innerText = "ERROR: NO TOKEN PASTED";
+            // This checks if you actually pasted something
+            if (myToken.length < 50) {
+                alert("The token looks too short or is missing. Please re-paste it!");
+                status.innerText = "TOKEN ERROR";
                 return;
             }
 
@@ -36,16 +38,16 @@
                     terrainProvider: await Cesium.createWorldTerrainAsync()
                 });
 
-                // Load 30cm-style Imagery
+                // Load 30cm Imagery (Asset ID 2)
                 const imagery = await Cesium.createWorldImageryAsync();
                 viewer.imageryLayers.addImageryProvider(imagery);
 
-                // Load Buildings
+                // Load 3D Buildings (Asset ID 96188)
                 const buildings = await Cesium.createOsmBuildingsAsync();
                 viewer.scene.primitives.add(buildings);
 
-                // LOCK ZOOM: Prevents the "Pixel Blur" by stopping camera at 200m
-                viewer.scene.screenSpaceCameraController.minimumZoomDistance = 200;
+                // 🛑 THE BLUR FIX: Stop camera at 250m to keep pixels sharp
+                viewer.scene.screenSpaceCameraController.minimumZoomDistance = 250;
 
                 status.innerText = "HD ONLINE";
                 viewer.camera.flyTo({
