@@ -3,35 +3,35 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-    <title>NASA 3D - Fresh Start</title>
+    <title>NASA 3D - Rescue Mode</title>
     <link href="https://cesium.com/downloads/cesiumjs/releases/1.104/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
     <script src="https://cesium.com/downloads/cesiumjs/releases/1.104/Build/Cesium/Cesium.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
     <script>eruda.init();</script>
     <style>
-        body, html { margin: 0; padding: 0; height: 100%; background: #000; color: #00f2ff; font-family: monospace; }
+        body, html { margin: 0; padding: 0; height: 100%; background: #000; color: #00f2ff; font-family: monospace; overflow: hidden; }
         #cesiumContainer { width: 100%; height: 100%; position: absolute; }
-        #hud { position: absolute; top: 15px; left: 15px; background: rgba(0, 20, 40, 0.9); padding: 10px; border: 1px solid #00f2ff; z-index: 1000; }
+        #hud { position: absolute; top: 10px; left: 10px; background: rgba(0, 10, 20, 0.9); padding: 10px; border: 1px solid #00f2ff; z-index: 1000; }
     </style>
 </head>
 <body>
-    <div id="hud"><b>AUTH STATUS:</b><br><div id="status">INIT...</div></div>
+    <div id="hud"><b>MISSION CONTROL</b><br><div id="status">INITIATING...</div></div>
     <div id="cesiumContainer"></div>
 
     <script>
-        // 🛑 PASTE YOUR BRAND NEW TOKEN HERE
-        const myToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI5OWViZTU0OS01ZDc2LTQ4NmQtYmRhMy04ZTU2MjA4MTkzMmQiLCJpZCI6MzczOTE1LCJpYXQiOjE3NjcyMDQxMzN9.dx0uUUh5Tombo75mdeWH7octN0XnaJyHiSHYLcrKgjQ';
+        // 🛑 PASTE YOUR NEW TOKEN INSIDE THESE QUOTES
+        const mySecretToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI5OWViZTU0OS01ZDc2LTQ4NmQtYmRhMy04ZTU2MjA4MTkzMmQiLCJpZCI6MzczOTE1LCJpYXQiOjE3NjcyMDQxMzN9.dx0uUUh5Tombo75mdeWH7octN0XnaJyHiSHYLcrKgjQ';
 
         async function start() {
             const status = document.getElementById('status');
             
-            // Clean the token of any accidental mobile spaces
-            const cleanToken = myToken.trim().replace(/['"‘“’”\s]/g, '');
+            // This line fixes mobile "Smart Quotes" and accidental spaces
+            const cleanToken = mySecretToken.trim().replace(/[\u201C\u201D\u2018\u2019\s]/g, "");
             Cesium.Ion.defaultAccessToken = cleanToken;
 
             try {
-                status.innerText = "VERIFYING NEW KEY...";
-                
+                status.innerText = "AUTHENTICATING...";
+
                 const viewer = new Cesium.Viewer('cesiumContainer', {
                     terrainProvider: await Cesium.createWorldTerrainAsync(),
                     baseLayerPicker: false,
@@ -52,23 +52,20 @@
                 });
                 viewer.imageryLayers.addImageryProvider(nasa);
 
-                // Settings to handle zoom and blur
-                viewer.scene.screenSpaceCameraController.minimumZoomDistance = 5.0; 
-                viewer.scene.globe.depthTestAgainstTerrain = true;
-
+                // Flight to Haines City
                 status.innerHTML = "<span style='color:#0f0'>SUCCESS: ONLINE</span>";
-
                 viewer.camera.flyTo({
                     destination: Cesium.Cartesian3.fromDegrees(-81.6231, 28.1136, 1500),
                     duration: 3
                 });
 
             } catch (e) {
-                console.error(e);
-                status.innerHTML = "<span style='color:#f00'>FAILED: CHECK TOKEN</span>";
+                console.error("Token Failure:", e);
+                status.innerHTML = "<span style='color:#f00'>FAIL: TOKEN REJECTED</span>";
             }
         }
         start();
     </script>
 </body>
 </html>
+
