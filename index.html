@@ -3,41 +3,36 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-    <title>NASA GPS Control v1.5</title>
+    <title>NASA Control v1.6</title>
     <script src="https://cesium.com/downloads/cesiumjs/releases/1.104/Build/Cesium/Cesium.js"></script>
     <link href="https://cesium.com/downloads/cesiumjs/releases/1.104/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
     <style>
         body { margin: 0; background: #000; overflow: hidden; }
         #cesiumContainer { width: 100%; height: 100%; position: absolute; }
         
-        /* HUD Style */
+        /* 🛠️ FIX 1: Moved HUD to the RIGHT so search bar (left) is clear */
         #hud { 
-            position: absolute; top: 10px; left: 10px; color: #00f2ff; 
+            position: absolute; top: 10px; right: 10px; color: #00f2ff; 
             background: rgba(0,10,30,0.85); padding: 12px; z-index: 10; 
             font-family: 'Courier New', monospace; border: 1px solid #00f2ff; 
-            box-shadow: 0 0 15px rgba(0, 242, 255, 0.4);
+            box-shadow: 0 0 15px rgba(0, 242, 255, 0.4); text-align: right;
         }
 
-        /* GPS Button Style */
-        #gpsBtn {
-            position: absolute; bottom: 30px; right: 20px; z-index: 100;
-            background: rgba(0, 40, 80, 0.9); color: #00f2ff;
-            border: 2px solid #00f2ff; padding: 15px; border-radius: 50%;
-            width: 60px; height: 60px; font-weight: bold; cursor: pointer;
-            box-shadow: 0 0 20px #00f2ff; font-size: 12px;
-            display: flex; align-items: center; justify-content: center;
-            text-align: center;
+        /* 🛠️ FIX 2: Sleek GPS link inside the HUD instead of a big button */
+        #gpsLink {
+            color: lime; text-decoration: underline; cursor: pointer; font-size: 11px;
         }
-        #gpsBtn:active { background: #00f2ff; color: #000; }
+        
+        /* Making the Cesium search bar look cleaner */
+        .cesium-viewer-geocoderContainer { margin: 10px; }
     </style>
 </head>
 <body>
     <div id="hud">
-        <b>SATELLITE FEED v1.5</b><br>
-        <div id="status">GPS READY</div>
+        <b>MISSION CONTROL v1.6</b><br>
+        <div id="status">SYSTEM READY</div>
+        <span id="gpsLink" onclick="findMe()">[ TARGET MY LOCATION ]</span>
     </div>
-
-    <div id="gpsBtn" onclick="findMe()">GPS</div>
     
     <div id="cesiumContainer"></div>
 
@@ -51,13 +46,13 @@
 
                 viewer = new Cesium.Viewer('cesiumContainer', {
                     baseLayerPicker: false, animation: false, timeline: false,
+                    geocoder: true, // This is your "type and go" search bar
                     terrainProvider: await Cesium.createWorldTerrainAsync(),
                     skyAtmosphere: new Cesium.SkyAtmosphere()
                 });
 
-                // Visual Settings
                 viewer.scene.globe.enableLighting = true;
-                viewer.scene.fog.enabled = true;
+                viewer.scene.screenSpaceCameraController.minimumZoomDistance = 250;
 
                 const imagery = await Cesium.createWorldImageryAsync();
                 viewer.imageryLayers.addImageryProvider(imagery);
@@ -65,47 +60,41 @@
                 const buildings = await Cesium.createOsmBuildingsAsync();
                 viewer.scene.primitives.add(buildings);
 
-                // Lock Zoom for Quality
-                viewer.scene.screenSpaceCameraController.minimumZoomDistance = 300;
-
-                // Initial Fly-to (Haines City)
                 viewer.camera.flyTo({
                     destination: Cesium.Cartesian3.fromDegrees(-81.6231, 28.1136, 1200),
                     duration: 3
                 });
 
             } catch (e) {
-                document.getElementById('status').innerText = "SYSTEM ERROR";
+                document.getElementById('status').innerText = "ERROR";
             }
         }
 
-        // GPS FUNCTION
+        // 🛠️ FIX 3: High-Accuracy GPS
         function findMe() {
             const status = document.getElementById('status');
-            status.innerText = "LOCATING...";
+            status.innerText = "LOCKING GPS...";
 
-            if ("geolocation" in navigator) {
-                navigator.geolocation.getCurrentPosition((position) => {
-                    const lat = position.coords.latitude;
-                    const lon = position.coords.longitude;
+            const options = {
+                enableHighAccuracy: true, // Forces phone to be precise
+                timeout: 5000,
+                maximumAge: 0
+            };
 
-                    status.innerText = "LOCK ACQUIRED";
-                    
-                    viewer.camera.flyTo({
-                        destination: Cesium.Cartesian3.fromDegrees(lon, lat, 1000),
-                        orientation: { pitch: Cesium.Math.toRadians(-35) },
-                        duration: 4
-                    });
-                }, (err) => {
-                    status.innerText = "GPS DENIED";
-                    alert("Please enable location services in your browser.");
+            navigator.geolocation.getCurrentPosition((pos) => {
+                status.innerText = "TARGET LOCKED";
+                viewer.camera.flyTo({
+                    destination: Cesium.Cartesian3.fromDegrees(pos.coords.longitude, pos.coords.latitude, 800),
+                    orientation: { pitch: Cesium.Math.toRadians(-45) },
+                    duration: 4
                 });
-            } else {
-                status.innerText = "GPS NOT SUPPORTED";
-            }
+            }, (err) => {
+                status.innerText = "GPS TIMEOUT";
+            }, options);
         }
 
         init();
     </script>
 </body>
 </html>
+
