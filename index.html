@@ -3,59 +3,58 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-    <title>HD Earth Mission</title>
+    <title>Atmospheric Earth v1.3</title>
     <script src="https://cesium.com/downloads/cesiumjs/releases/1.104/Build/Cesium/Cesium.js"></script>
     <link href="https://cesium.com/downloads/cesiumjs/releases/1.104/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
     <style>
         body { margin: 0; background: #000; overflow: hidden; }
         #cesiumContainer { width: 100%; height: 100%; position: absolute; }
-        #hud { position: absolute; top: 10px; left: 10px; color: #0f0; background: rgba(0,0,0,0.8); padding: 10px; z-index: 10; font-family: monospace; border: 1px solid #0f0; }
+        #hud { position: absolute; top: 10px; left: 10px; color: #00f2ff; background: rgba(0,10,30,0.85); padding: 10px; z-index: 10; font-family: monospace; border: 1px solid #00f2ff; box-shadow: 0 0 10px #00f2ff; }
     </style>
 </head>
 <body>
-    <div id="hud">SYSTEM: <span id="status">CHECKING TOKEN...</span></div>
+    <div id="hud">SYSTEM v1.3: <span id="status">INIT...</span></div>
     <div id="cesiumContainer"></div>
 
     <script>
-        // 🛑 PASTE YOUR TOKEN BELOW - DO NOT DELETE THE ' ' MARKS
         const myToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI5OWViZTU0OS01ZDc2LTQ4NmQtYmRhMy04ZTU2MjA4MTkzMmQiLCJpZCI6MzczOTE1LCJpYXQiOjE3NjcyMDQxMzN9.dx0uUUh5Tombo75mdeWH7octN0XnaJyHiSHYLcrKgjQ';
 
         async function init() {
             const status = document.getElementById('status');
-            
-            // This checks if you actually pasted something
-            if (myToken.length < 50) {
-                alert("The token looks too short or is missing. Please re-paste it!");
-                status.innerText = "TOKEN ERROR";
-                return;
-            }
-
             try {
                 Cesium.Ion.defaultAccessToken = myToken.trim();
 
                 const viewer = new Cesium.Viewer('cesiumContainer', {
                     baseLayerPicker: false, animation: false, timeline: false,
-                    terrainProvider: await Cesium.createWorldTerrainAsync()
+                    terrainProvider: await Cesium.createWorldTerrainAsync(),
+                    // 1. ADD ATMOSPHERE
+                    skyAtmosphere: new Cesium.SkyAtmosphere()
                 });
 
-                // Load 30cm Imagery (Asset ID 2)
+                // 2. ENABLE FOG (Makes the horizon look real)
+                viewer.scene.fog.enabled = true;
+                viewer.scene.fog.density = 0.0001;
+
+                // 3. ENABLE LIGHTING (Sunlight and Shadows)
+                viewer.scene.globe.enableLighting = true;
+
                 const imagery = await Cesium.createWorldImageryAsync();
                 viewer.imageryLayers.addImageryProvider(imagery);
 
-                // Load 3D Buildings (Asset ID 96188)
                 const buildings = await Cesium.createOsmBuildingsAsync();
                 viewer.scene.primitives.add(buildings);
 
-                // 🛑 THE BLUR FIX: Stop camera at 250m to keep pixels sharp
-                viewer.scene.screenSpaceCameraController.minimumZoomDistance = 250;
+                // LOCK ZOOM FOR QUALITY
+                viewer.scene.screenSpaceCameraController.minimumZoomDistance = 300;
 
-                status.innerText = "HD ONLINE";
+                status.innerText = "ATMOSPHERE ONLINE";
+                
                 viewer.camera.flyTo({
-                    destination: Cesium.Cartesian3.fromDegrees(-81.6231, 28.1136, 1500)
+                    destination: Cesium.Cartesian3.fromDegrees(-81.6231, 28.1136, 1200),
+                    orientation: { pitch: Cesium.Math.toRadians(-25) },
+                    duration: 4
                 });
-
             } catch (e) {
-                status.style.color = "red";
                 status.innerText = "CRASH: " + e.message;
             }
         }
@@ -63,3 +62,4 @@
     </script>
 </body>
 </html>
+
