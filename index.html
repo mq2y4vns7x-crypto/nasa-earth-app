@@ -1,42 +1,114 @@
-<script>
-    const viewer = new Cesium.Viewer('cesiumContainer', {
-        imageryProvider: new Cesium.OpenStreetMapImageryProvider({
-            url: 'https://a.tile.openstreetmap.org/'
-        }),
-        terrainProvider: Cesium.createWorldTerrain(),
-        baseLayerPicker: false
-    });
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <title>GBA Global Command</title>
+    <link href="https://cesium.com/downloads/cesiumjs/releases/1.104/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+    <script src="https://cesium.com/downloads/cesiumjs/releases/1.104/Build/Cesium/Cesium.js"></script>
+    <style>
+        body, html { margin: 0; padding: 0; height: 100%; background: #000; overflow: hidden; color: #00f2ff; font-family: monospace; }
+        #cesiumContainer { width: 100%; height: 100%; }
+        #console {
+            position: absolute; top: 10px; left: 10px; width: 250px;
+            background: rgba(0, 10, 20, 0.9); border: 1px solid #00f2ff;
+            padding: 10px; z-index: 100; font-size: 12px; pointer-events: none;
+        }
+        #controls {
+            position: absolute; bottom: 20px; left: 10px; z-index: 100;
+            background: rgba(0, 10, 20, 0.9); padding: 10px; border: 1px solid #00f2ff;
+        }
+        .loading-bar { width: 0%; height: 2px; background: #00f2ff; transition: width 0.3s; }
+        button { background: #002233; color: #00f2ff; border: 1px solid #00f2ff; cursor: pointer; margin: 2px; }
+    </style>
+</head>
+<body>
 
-    // 1. THE GAP-FREE LAYER: Using NASA VIIRS instead of MODIS
-    // VIIRS on Suomi NPP covers the orbital gaps much better
-    const viirsLayer = viewer.imageryLayers.addImageryProvider(new Cesium.WebMapTileServiceImageryProvider({
-        url: "https://gibs.earthdata.nasa.gov/wmts/epsg4326/best/wmts.cgi?Service=WMTS&Request=GetTile&Version=1.0.0&Layer=VIIRS_SNPP_CorrectedReflectance_TrueColor&TileMatrixSet=250m&TileMatrix={TileMatrix}&TileRow={TileRow}&TileCol={TileCol}&Style=default&Format=image/jpeg&Time=2025-12-30",
-        layer: "VIIRS_SNPP_CorrectedReflectance_TrueColor",
-        style: "default",
-        format: "image/jpeg",
-        tileMatrixSetID: "250m",
-        maximumLevel: 8
-    }));
+    <div id="console">
+        <div style="font-weight: bold;">MISSION CONTROL</div>
+        <div id="handshake">HANDSHAKE: INITIALIZING...</div>
+        <div class="loading-bar" id="bar"></div>
+        <div id="layer-status">LAYERS: STACKING...</div>
+    </div>
 
-    // 2. STACKING THE SECOND SATELLITE (Aqua) 
-    // This acts as a backup to fill any tiny remaining holes
-    const aquaLayer = viewer.imageryLayers.addImageryProvider(new Cesium.WebMapTileServiceImageryProvider({
-        url: "https://gibs.earthdata.nasa.gov/wmts/epsg4326/best/wmts.cgi?Service=WMTS&Request=GetTile&Version=1.0.0&Layer=MODIS_Aqua_CorrectedReflectance_TrueColor&TileMatrixSet=250m&TileMatrix={TileMatrix}&TileRow={TileRow}&TileCol={TileCol}&Style=default&Format=image/jpeg&Time=2025-12-30",
-        layer: "MODIS_Aqua_CorrectedReflectance_TrueColor",
-        tileMatrixSetID: "250m"
-    }));
-    
-    // Set them to blend so the "Gaps" disappear
-    viirsLayer.alpha = 0.8;
-    aquaLayer.alpha = 0.4;
+    <div id="controls">
+        <button onclick="toggleRotation()">TOGGLE ROTATE</button>
+        <button onclick="toggleLighting()">DAY/NIGHT</button>
+    </div>
 
-    // 3. 3D BUILDINGS & CAMERA
-    viewer.scene.primitives.add(Cesium.createOsmBuildings());
-    viewer.scene.screenSpaceCameraController.enableLook = false;
-    viewer.scene.screenSpaceCameraController.minimumZoomDistance = 2;
+    <div id="cesiumContainer"></div>
 
-    viewer.camera.flyTo({
-        destination: Cesium.Cartesian3.fromDegrees(-81.6231, 28.1136, 1500)
-    });
-</script>
+    <script>
+        // 1. INITIALIZE GLOBAL GLOBE
+        const viewer = new Cesium.Viewer('cesiumContainer', {
+            terrainProvider: Cesium.createWorldTerrain(),
+            baseLayerPicker: false, imageryProvider: new Cesium.OpenStreetMapImageryProvider({url: 'https://a.tile.openstreetmap.org/'}),
+            geocoder: true, timeline: true, animation: true
+        });
+
+        const consoleLog = document.getElementById('handshake');
+        const bar = document.getElementById('bar');
+
+        // 2. LAYER 1: NASA CLOUDS (VIIRS)
+        consoleLog.innerText = "HANDSHAKE: REQUESTING NASA...";
+        const nasaLayer = viewer.imageryLayers.addImageryProvider(new Cesium.WebMapTileServiceImageryProvider({
+            url: "https://gibs.earthdata.nasa.gov/wmts/epsg4326/best/wmts.cgi?Service=WMTS&Request=GetTile&Version=1.0.0&Layer=VIIRS_SNPP_CorrectedReflectance_TrueColor&TileMatrixSet=250m&TileMatrix={TileMatrix}&TileRow={TileRow}&TileCol={TileCol}&Style=default&Format=image/jpeg",
+            layer: "VIIRS_SNPP_CorrectedReflectance_TrueColor"
+        }));
+        nasaLayer.alpha = 0.5;
+
+        // 3. LAYER 2: GLOBAL BUILDING ATLAS (GBA)
+        consoleLog.innerText = "HANDSHAKE: CONNECTING TO TUM ATLAS...";
+        const gbaLayer = viewer.imageryLayers.addImageryProvider(new Cesium.WebMapServiceImageryProvider({
+            url : 'https://tubvsig-so2sat-vm1.srv.mwn.de/geoserver/ows?',
+            layers : 'gba:gba_lod1',
+            parameters : { transparent : true, format : 'image/png' }
+        }));
+
+        // MONITOR THE HANDSHAKE
+        viewer.scene.globe.tileLoadProgressEvent.addEventListener((count) => {
+            if (count > 0) {
+                consoleLog.innerText = "HANDSHAKE: STREAMING DATA...";
+                bar.style.width = "50%";
+            } else {
+                consoleLog.innerText = "HANDSHAKE: SECURE";
+                bar.style.width = "100%";
+                setTimeout(() => { bar.style.width = "0%"; }, 2000);
+            }
+        });
+
+        // 4. 3D BUILDINGS & EFFECTS
+        const buildings = viewer.scene.primitives.add(Cesium.createOsmBuildings());
+        viewer.scene.globe.enableLighting = true; // Start with real sun position
+        viewer.scene.skyAtmosphere.show = true;
+
+        // 5. ROTATION LOGIC
+        let lastTime = Date.now();
+        const rotateListener = (scene, time) => {
+            const now = Date.now();
+            const delta = (now - lastTime) / 1000;
+            lastTime = now;
+            viewer.scene.camera.rotate(Cesium.Cartesian3.UNIT_Z, 0.05 * delta);
+        };
+
+        function toggleRotation() {
+            const rotating = viewer.scene.postRender.numberOfListeners > 0;
+            if (rotating) { viewer.scene.postRender.removeEventListener(rotateListener); }
+            else { viewer.scene.postRender.addEventListener(rotateListener); }
+        }
+
+        function toggleLighting() {
+            viewer.scene.globe.enableLighting = !viewer.scene.globe.enableLighting;
+            consoleLog.innerText = "MODE: " + (viewer.scene.globe.enableLighting ? "REAL-TIME SUN" : "FULL BRIGHT");
+        }
+
+        // 6. INITIAL ZOOM
+        viewer.camera.flyTo({
+            destination: Cesium.Cartesian3.fromDegrees(-81.6231, 28.1136, 2000),
+            orientation: { pitch: Cesium.Math.toRadians(-30) }
+        });
+
+    </script>
+</body>
+</html>
 
