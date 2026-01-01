@@ -3,25 +3,32 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-    <title>NASA Deep Space v3.4</title>
+    <title>NASA Deep Space Ultimate</title>
     <script src="https://cesium.com/downloads/cesiumjs/releases/1.104/Build/Cesium/Cesium.js"></script>
     <link href="https://cesium.com/downloads/cesiumjs/releases/1.104/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
     <style>
         body { margin: 0; padding: 0; background: #000; overflow: hidden; }
         #cesiumContainer { width: 100vw; height: 100vh; }
+        /* Standard GUI: Search bar will be in the top-right */
         .cesium-viewer-bottom { display: none !important; }
     </style>
 </head>
 <body>
     <div id="cesiumContainer"></div>
     <script>
+        // 1. YOUR API KEY GOES HERE
         const myToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI5NzM1YmQ5Yi0wMTk4LTRlNDctYTBmNi00ZjU0MDMyZTQzZjQiLCJpZCI6MzczOTE1LCJpYXQiOjE3NjcyNzg2MTJ9.pEgSguWJY7MYUMJdpGToJto8Dxymegeo4iDbqRANtPo';
 
         async function init() {
             try {
                 Cesium.Ion.defaultAccessToken = myToken.trim();
 
+                // 2. LOAD NIGHT LIGHTS AS THE BASE (NASA Black Marble)
+                const nightProvider = await Cesium.IonImageryProvider.fromAssetId(3812);
+
                 const viewer = new Cesium.Viewer('cesiumContainer', {
+                    imageryProvider: nightProvider, 
+                    terrainProvider: await Cesium.createWorldTerrainAsync(),
                     geocoder: true,           
                     baseLayerPicker: false,   
                     timeline: false,
@@ -29,46 +36,40 @@
                     homeButton: true,         
                     sceneModePicker: false,
                     navigationHelpButton: false,
-                    // The Globe must be true for the Night API to render
-                    globe: true 
+                    infoBox: false
                 });
 
-                // 🏢 1. GOOGLE PHOTOREALISTIC 3D TILES
-                const googleTileset = await Cesium.createGooglePhotorealistic3DTileset();
-                viewer.scene.primitives.add(googleTileset);
+                // 3. ADD GOOGLE PHOTOREALISTIC 3D BUILDINGS
+                try {
+                    const googleTileset = await Cesium.createGooglePhotorealistic3DTileset();
+                    viewer.scene.primitives.add(googleTileset);
+                } catch (e) { console.error("Google 3D failed. Did you add it to assets?"); }
 
-                // 🌃 2. NASA BLACK MARBLE (Earth at Night API)
-                // Asset ID 3812 is the high-res Night Lights
-                const nightLayer = await Cesium.IonImageryProvider.fromAssetId(3812);
-                const nightImagery = viewer.imageryLayers.addImageryProvider(nightLayer);
-                
-                // This makes the night lights only show on the dark side of the earth
-                nightImagery.dayAlpha = 0.0; 
-                nightImagery.nightAlpha = 1.0;
-
-                // 🌑 3. THE MOON
+                // 4. ADD THE MOON
                 viewer.scene.moon = new Cesium.Moon();
 
-                // ☀️ 4. LIGHTING & SPIN
+                // 5. LIGHTING & EARTH SPIN
                 viewer.scene.globe.enableLighting = true; 
-                viewer.clock.multiplier = 1500; // Speed up time to see the rotation
+                viewer.clock.multiplier = 1000; 
                 viewer.clock.shouldAnimate = true;
 
-                // 🔄 AUTOMATIC SPIN
+                // AUTOMATIC SPIN SCRIPT
                 viewer.scene.preRender.addEventListener(function() {
+                    // Only spin when zoomed out in space
                     if (viewer.camera.positionCartographic.height > 500000) {
                         viewer.camera.rotateRight(0.0002); 
                     }
                 });
 
-                // Start view
+                // Fly to starting view
                 viewer.camera.flyTo({
                     destination: Cesium.Cartesian3.fromDegrees(-81.6231, 28.1136, 15000000), 
                     duration: 3
                 });
 
-            } catch (e) { 
-                console.error("If the screen is black, add 'Google Photorealistic 3D Tiles' and 'Black Marble' to your Ion Assets."); 
+            } catch (e) {
+                console.error("Critical Load Error:", e);
+                alert("Check your Token Permissions and Asset Depot!");
             }
         }
         init();
