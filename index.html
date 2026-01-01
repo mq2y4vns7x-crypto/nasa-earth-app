@@ -3,138 +3,51 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-    <title>NASA Command v1.9</title>
+    <title>Google 3D Satellite</title>
     <script src="https://cesium.com/downloads/cesiumjs/releases/1.104/Build/Cesium/Cesium.js"></script>
     <link href="https://cesium.com/downloads/cesiumjs/releases/1.104/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
     <style>
-        body { margin: 0; background: #000; overflow: hidden; font-family: 'Courier New', monospace; }
-        #cesiumContainer { width: 100%; height: 100%; position: absolute; }
-        
-        /* 🛠️ SIDEBAR MENU */
-        #sidebar {
-            position: absolute; top: 0; right: -260px;
-            width: 250px; height: 100%; background: rgba(0, 10, 30, 0.95);
-            border-left: 2px solid #00f2ff; color: #00f2ff;
-            transition: 0.4s; z-index: 1000; padding: 20px;
-            box-shadow: -5px 0 20px rgba(0, 242, 255, 0.3);
-        }
-        #sidebar.open { right: 0; }
-        #menuBtn {
-            position: absolute; top: 15px; right: 15px;
-            width: 45px; height: 45px; background: #00f2ff;
-            border: none; border-radius: 5px; cursor: pointer;
-            z-index: 1001; font-weight: bold; font-size: 20px;
-        }
-
-        .stat-box { margin-bottom: 20px; border-bottom: 1px solid #004455; padding-bottom: 10px; }
-        .control-btn { 
-            background: none; border: 1px solid #00f2ff; color: #00f2ff; 
-            padding: 8px; width: 100%; cursor: pointer; font-family: inherit; margin-bottom: 10px;
-        }
+        body { margin: 0; padding: 0; background: #000; overflow: hidden; }
+        #cesiumContainer { width: 100vw; height: 100vh; }
+        /* Only the Search Bar remains */
+        .cesium-viewer-geocoderContainer { top: 20px !important; left: 20px !important; }
+        .cesium-viewer-bottom { display: none !important; }
     </style>
 </head>
 <body>
-
-    <button id="menuBtn" onclick="toggleSidebar()">≡</button>
-
-    <div id="sidebar">
-        <div class="stat-box">
-            <h3 style="margin:0">COMMAND v1.9</h3>
-            <p id="status" style="font-size:12px; color:lime">ENCRYPTED CONNECTION</p>
-        </div>
-        
-        <div class="stat-box">
-            <b>POSITION DATA</b><br>
-            <span id="lat-val" style="color:white; font-size:11px">LAT: --</span><br>
-            <span id="lon-val" style="color:white; font-size:11px">LON: --</span>
-        </div>
-
-        <button class="control-btn" onclick="enterWalkMode()" id="walkBtn">🚶 ENTER WALK MODE</button>
-        <button class="control-btn" onclick="startGpsLock()" style="border-color:lime; color:lime;">📡 SYNC GPS LOCK</button>
-        
-        <p style="font-size: 10px; color: #aaa;">*Address search is private and does not track.</p>
-    </div>
-    
     <div id="cesiumContainer"></div>
-
     <script>
-        const myToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI5OWViZTU0OS01ZDc2LTQ4NmQtYmRhMy04ZTU2MjA4MTkzMmQiLCJpZCI6MzczOTE1LCJpYXQiOjE3NjcyMDQxMzN9.dx0uUUh5Tombo75mdeWH7octN0XnaJyHiSHYLcrKgjQ';
-        let viewer;
-
-        function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); }
+        const myToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI5NzM1YmQ5Yi0wMTk4LTRlNDctYTBmNi00ZjU0MDMyZTQzZjQiLCJpZCI6MzczOTE1LCJpYXQiOjE3NjcyNzg2MTJ9.pEgSguWJY7MYUMJdpGToJto8Dxymegeo4iDbqRANtPo';
 
         async function init() {
             try {
                 Cesium.Ion.defaultAccessToken = myToken.trim();
 
-                viewer = new Cesium.Viewer('cesiumContainer', {
+                const viewer = new Cesium.Viewer('cesiumContainer', {
+                    globe: false, // Required for Google Tiles to display correctly
                     geocoder: true,
-                    baseLayerPicker: false, animation: false, timeline: false,
-                    terrainProvider: await Cesium.createWorldTerrainAsync()
+                    baseLayerPicker: false,
+                    timeline: false,
+                    animation: false,
+                    infoBox: false,
+                    selectionIndicator: false
                 });
 
-                // ☁️ 1. REAL-TIME CLOUDS & ATMOSPHERE
-                viewer.scene.skyAtmosphere = new Cesium.SkyAtmosphere();
-                viewer.scene.globe.enableLighting = true;
-                
-                // Add the Cloud Layer (Asset ID 3812 is Earth at Night/Clouds combo)
-                const cloudLayer = await Cesium.IonImageryProvider.fromAssetId(3812);
-                viewer.imageryLayers.addImageryProvider(cloudLayer);
+                // Add the Google 3D Tileset
+                const tileset = await Cesium.createGooglePhotorealistic3DTileset();
+                viewer.scene.primitives.add(tileset);
 
-                // 🏢 2. COLORED BUILDINGS (Realistic Textures)
-                const buildings = await Cesium.createOsmBuildingsAsync({
-                    defaultColor: Cesium.Color.fromCssColorString('#dcdcdc')
-                });
-                viewer.scene.primitives.add(buildings);
-
-                // 📍 3. COORDINATE TRACKER
-                viewer.camera.changed.addEventListener(() => {
-                    const carto = viewer.camera.positionCartographic;
-                    document.getElementById('lat-val').innerText = "LAT: " + Cesium.Math.toDegrees(carto.latitude).toFixed(6);
-                    document.getElementById('lon-val').innerText = "LON: " + Cesium.Math.toDegrees(carto.longitude).toFixed(6);
-                });
-
-                // INITIAL FLY-TO
+                // Start view
                 viewer.camera.flyTo({
-                    destination: Cesium.Cartesian3.fromDegrees(-81.6231, 28.1136, 1000),
-                    duration: 3
+                    destination: Cesium.Cartesian3.fromDegrees(-81.6231, 28.1136, 800),
+                    duration: 2
                 });
 
-            } catch (e) { console.error(e); }
+            } catch (e) {
+                console.log("Ensure Google 3D Tiles are added in your Ion Asset Depot!");
+            }
         }
-
-        // 🚶 4. WALK MODE (First Person)
-        function enterWalkMode() {
-            // Drops camera to street level and tilts to look forward
-            const pos = viewer.camera.positionCartographic;
-            viewer.camera.flyTo({
-                destination: Cesium.Cartesian3.fromDegrees(
-                    Cesium.Math.toDegrees(pos.longitude), 
-                    Cesium.Math.toDegrees(pos.latitude), 
-                    2.5 // 2.5 meters high (Human height)
-                ),
-                orientation: {
-                    pitch: 0, // Look straight ahead
-                    heading: viewer.camera.heading
-                },
-                duration: 2
-            });
-            toggleSidebar();
-            document.getElementById('status').innerText = "MODE: STREET LEVEL";
-        }
-
-        function startGpsLock() {
-            navigator.geolocation.getCurrentPosition((pos) => {
-                viewer.camera.flyTo({
-                    destination: Cesium.Cartesian3.fromDegrees(pos.coords.longitude, pos.coords.latitude, 500),
-                    orientation: { pitch: Cesium.Math.toRadians(-45) },
-                    duration: 4
-                });
-            }, null, { enableHighAccuracy: true });
-        }
-
         init();
     </script>
 </body>
 </html>
-
