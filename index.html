@@ -3,15 +3,12 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-    <title>NASA Satellite - Original GUI</title>
+    <title>NASA Deep Space v3.4</title>
     <script src="https://cesium.com/downloads/cesiumjs/releases/1.104/Build/Cesium/Cesium.js"></script>
     <link href="https://cesium.com/downloads/cesiumjs/releases/1.104/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
     <style>
-        /* Standard Full-Screen Layout */
         body { margin: 0; padding: 0; background: #000; overflow: hidden; }
         #cesiumContainer { width: 100vw; height: 100vh; }
-
-        /* Hiding only the unused bottom timeline/animation to keep it clean */
         .cesium-viewer-bottom { display: none !important; }
     </style>
 </head>
@@ -24,51 +21,55 @@
             try {
                 Cesium.Ion.defaultAccessToken = myToken.trim();
 
-                // Initialize with default UI (search bar on top-right)
                 const viewer = new Cesium.Viewer('cesiumContainer', {
-                    geocoder: true,           // Search bar in original top-right position
-                    baseLayerPicker: false,   // Keeps high-res satellite locked
+                    geocoder: true,           
+                    baseLayerPicker: false,   
                     timeline: false,
                     animation: false,
-                    infoBox: false,
-                    selectionIndicator: false,
-                    navigationHelpButton: false,
-                    homeButton: true,         // Restored original home button
+                    homeButton: true,         
                     sceneModePicker: false,
-                    fullscreenButton: false
+                    navigationHelpButton: false,
+                    // The Globe must be true for the Night API to render
+                    globe: true 
                 });
 
-                // 🏢 1. GOOGLE 3D TILES (Hyper-Realistic Buildings)
-                const tileset = await Cesium.createGooglePhotorealistic3DTileset();
-                viewer.scene.primitives.add(tileset);
+                // 🏢 1. GOOGLE PHOTOREALISTIC 3D TILES
+                const googleTileset = await Cesium.createGooglePhotorealistic3DTileset();
+                viewer.scene.primitives.add(googleTileset);
 
-                // 🌃 2. NIGHT LIGHTS (NASA Black Marble)
+                // 🌃 2. NASA BLACK MARBLE (Earth at Night API)
+                // Asset ID 3812 is the high-res Night Lights
                 const nightLayer = await Cesium.IonImageryProvider.fromAssetId(3812);
-                viewer.imageryLayers.addImageryProvider(nightLayer);
+                const nightImagery = viewer.imageryLayers.addImageryProvider(nightLayer);
+                
+                // This makes the night lights only show on the dark side of the earth
+                nightImagery.dayAlpha = 0.0; 
+                nightImagery.nightAlpha = 1.0;
 
-                // ☀️ 3. SUN LIGHTING & EARTH SPIN
+                // 🌑 3. THE MOON
+                viewer.scene.moon = new Cesium.Moon();
+
+                // ☀️ 4. LIGHTING & SPIN
                 viewer.scene.globe.enableLighting = true; 
-                viewer.clock.multiplier = 1200; // Speed for visible rotation
+                viewer.clock.multiplier = 1500; // Speed up time to see the rotation
                 viewer.clock.shouldAnimate = true;
 
-                // 🔄 AUTOMATIC EARTH SPIN
+                // 🔄 AUTOMATIC SPIN
                 viewer.scene.preRender.addEventListener(function() {
-                    // Only spin when zoomed out (above 500km)
                     if (viewer.camera.positionCartographic.height > 500000) {
                         viewer.camera.rotateRight(0.0002); 
                     }
                 });
 
-                // 🌫️ 4. ATMOSPHERE
-                viewer.scene.skyAtmosphere = new Cesium.SkyAtmosphere();
-
-                // Initial Fly-to
+                // Start view
                 viewer.camera.flyTo({
-                    destination: Cesium.Cartesian3.fromDegrees(-81.6231, 28.1136, 10000000), 
+                    destination: Cesium.Cartesian3.fromDegrees(-81.6231, 28.1136, 15000000), 
                     duration: 3
                 });
 
-            } catch (e) { console.error("UI Restored. Error:", e); }
+            } catch (e) { 
+                console.error("If the screen is black, add 'Google Photorealistic 3D Tiles' and 'Black Marble' to your Ion Assets."); 
+            }
         }
         init();
     </script>
