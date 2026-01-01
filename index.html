@@ -3,70 +3,72 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-    <title>NASA Night-Sync v2.9</title>
+    <title>NASA Satellite - Original GUI</title>
     <script src="https://cesium.com/downloads/cesiumjs/releases/1.104/Build/Cesium/Cesium.js"></script>
     <link href="https://cesium.com/downloads/cesiumjs/releases/1.104/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
     <style>
+        /* Standard Full-Screen Layout */
         body { margin: 0; padding: 0; background: #000; overflow: hidden; }
         #cesiumContainer { width: 100vw; height: 100vh; }
-        /* ONLY THE SEARCH BAR - NO MENUS */
-        .cesium-viewer-geocoderContainer { top: 20px !important; left: 20px !important; z-index: 999; }
-        .cesium-viewer-bottom, .cesium-viewer-toolbar { display: none !important; }
-        .cesium-viewer-geocoderContainer { display: block !important; } /* Force search bar only */
+
+        /* Hiding only the unused bottom timeline/animation to keep it clean */
+        .cesium-viewer-bottom { display: none !important; }
     </style>
 </head>
 <body>
     <div id="cesiumContainer"></div>
     <script>
-        const myToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI5NzM1YmQ5Yi0wMTk4LTRlNDctYTBmNi00ZjU0MDMyZTQzZjQiLCJpZCI6MzczOTE1LCJpYXQiOjE3NjcyNzg2MTJ9.pEgSguWJY7MYUMJdpGToJto8Dxymegeo4iDbqRANtPo';
+        const myToken = 'PASTE_YOUR_TOKEN_HERE';
 
         async function init() {
             try {
                 Cesium.Ion.defaultAccessToken = myToken.trim();
 
+                // Initialize with default UI (search bar on top-right)
                 const viewer = new Cesium.Viewer('cesiumContainer', {
-                    globe: true, // Enabled for night lights
-                    geocoder: true,
-                    baseLayerPicker: false,
+                    geocoder: true,           // Search bar in original top-right position
+                    baseLayerPicker: false,   // Keeps high-res satellite locked
                     timeline: false,
                     animation: false,
                     infoBox: false,
                     selectionIndicator: false,
                     navigationHelpButton: false,
-                    homeButton: false
+                    homeButton: true,         // Restored original home button
+                    sceneModePicker: false,
+                    fullscreenButton: false
                 });
 
-                // 1. 🏢 GOOGLE 3D TILES
+                // 🏢 1. GOOGLE 3D TILES (Hyper-Realistic Buildings)
                 const tileset = await Cesium.createGooglePhotorealistic3DTileset();
                 viewer.scene.primitives.add(tileset);
 
-                // 2. 🌃 NIGHT LIGHTS (Black Marble)
+                // 🌃 2. NIGHT LIGHTS (NASA Black Marble)
                 const nightLayer = await Cesium.IonImageryProvider.fromAssetId(3812);
                 viewer.imageryLayers.addImageryProvider(nightLayer);
 
-                // 3. ☀️ DYNAMIC LIGHTING & SPIN
+                // ☀️ 3. SUN LIGHTING & EARTH SPIN
                 viewer.scene.globe.enableLighting = true; 
-                viewer.clock.multiplier = 1000; // Time moves faster so you can see the sun move
+                viewer.clock.multiplier = 1200; // Speed for visible rotation
                 viewer.clock.shouldAnimate = true;
 
-                // 🔄 EARTH SPIN SCRIPT
-                // Rotates the camera slightly every frame to simulate Earth's rotation
-                viewer.scene.preRender.addEventListener(function(scene, time) {
-                    if (viewer.camera.positionCartographic.height > 500000) { // Only spin when in space
-                        viewer.camera.rotateRight(0.0001); 
+                // 🔄 AUTOMATIC EARTH SPIN
+                viewer.scene.preRender.addEventListener(function() {
+                    // Only spin when zoomed out (above 500km)
+                    if (viewer.camera.positionCartographic.height > 500000) {
+                        viewer.camera.rotateRight(0.0002); 
                     }
                 });
 
-                // 4. ATMOSPHERE
+                // 🌫️ 4. ATMOSPHERE
                 viewer.scene.skyAtmosphere = new Cesium.SkyAtmosphere();
-                viewer.scene.fog.enabled = true;
 
+                // Initial Fly-to
                 viewer.camera.flyTo({
-                    destination: Cesium.Cartesian3.fromDegrees(-81.6231, 28.1136, 10000000), // Start in deep space
-                    duration: 4
+                    destination: Cesium.Cartesian3.fromDegrees(-81.6231, 28.1136, 10000000), 
+                    duration: 3
                 });
 
-            } catch (e) { console.error(e); }
+            } catch (e) { console.error("UI Restored. Error:", e); }
         }
         init();
     </script>
