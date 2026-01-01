@@ -3,103 +3,88 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-    <title>NASA Deep Space v3.8</title>
+    <title>NASA Deep Space v5.0</title>
     <script src="https://cesium.com/downloads/cesiumjs/releases/1.104/Build/Cesium/Cesium.js"></script>
     <link href="https://cesium.com/downloads/cesiumjs/releases/1.104/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
     <style>
-        body { margin: 0; padding: 0; background: #000; overflow: hidden; color: white; font-family: sans-serif; }
+        body { margin: 0; padding: 0; background: #000; overflow: hidden; }
         #cesiumContainer { width: 100vw; height: 100vh; }
+        /* Hides the bottom timeline bar for a clean look */
         .cesium-viewer-bottom { display: none !important; }
-
-        /* API KEY OVERLAY */
-        #apiOverlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.9); display: flex; flex-direction: column;
-            align-items: center; justify-content: center; z-index: 10000;
-        }
-        #apiInput {
-            padding: 15px; width: 320px; border-radius: 5px; border: 1px solid #00f2ff;
-            background: #111; color: #00f2ff; font-family: monospace; margin-bottom: 20px;
-        }
-        #startBtn {
-            padding: 10px 30px; background: #00f2ff; color: black; 
-            border: none; border-radius: 5px; cursor: pointer; font-weight: bold;
-        }
     </style>
 </head>
 <body>
-
-    <div id="apiOverlay">
-        <h2>🚀 NASA EARTH ENGINE</h2>
-        <input type="text" id="apiInput" placeholder="PASTE YOUR CESIUM ION TOKEN HERE">
-        <button id="startBtn" onclick="startApp()">LAUNCH SATELLITE</button>
-        <p style="font-size: 10px; color: #888; margin-top: 15px;">Requires: Google 3D Tiles & Black Marble Assets</p>
-    </div>
-
     <div id="cesiumContainer"></div>
 
     <script>
-        let viewer;
+        // 👇👇👇 PASTE YOUR API KEY INSIDE THESE QUOTES 👇👇👇
+        const myToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI5NzM1YmQ5Yi0wMTk4LTRlNDctYTBmNi00ZjU0MDMyZTQzZjQiLCJpZCI6MzczOTE1LCJpYXQiOjE3NjcyNzg2MTJ9.pEgSguWJY7MYUMJdpGToJto8Dxymegeo4iDbqRANtPo';
+        // 👆👆👆 PASTE YOUR API KEY INSIDE THESE QUOTES 👆👆👆
 
-        async function startApp() {
-            const token = document.getElementById('apiInput').value.trim();
-            if (!token) { alert("Please enter a valid token."); return; }
-            
-            // Hide the overlay
-            document.getElementById('apiOverlay').style.display = 'none';
-            
-            // Initialize Cesium
-            Cesium.Ion.defaultAccessToken = token;
-
+        async function init() {
             try {
-                // 1. Setup Viewer with standard default GUI
-                viewer = new Cesium.Viewer('cesiumContainer', {
-                    geocoder: true,           
+                // 1. Set the Token
+                Cesium.Ion.defaultAccessToken = myToken.trim();
+
+                // 2. Create the Earth Viewer (Standard GUI)
+                const viewer = new Cesium.Viewer('cesiumContainer', {
+                    geocoder: true,           // Search bar (Top Right)
                     baseLayerPicker: false,   
                     timeline: false,
                     animation: false,
-                    homeButton: true,         
+                    homeButton: true,         // Home button (Top Right)
                     sceneModePicker: false,
                     navigationHelpButton: false,
-                    infoBox: false
+                    infoBox: false,
+                    globe: true               // Globe must be ON for Night Lights
                 });
-
-                // 2. Add Night Lights (NASA Black Marble)
-                const nightLayer = await Cesium.IonImageryProvider.fromAssetId(3812);
-                viewer.imageryLayers.addImageryProvider(nightLayer);
 
                 // 3. Add Google Photorealistic 3D Buildings
                 try {
                     const googleTileset = await Cesium.createGooglePhotorealistic3DTileset();
                     viewer.scene.primitives.add(googleTileset);
-                } catch (e) { console.log("Google Tiles not available."); }
+                } catch (e) {
+                    console.warn("Google 3D Tiles failed. Check your Asset Depot.");
+                }
 
-                // 4. Add Moon
+                // 4. Add NASA Night Lights (Black Marble)
+                try {
+                    const nightLayer = await Cesium.IonImageryProvider.fromAssetId(3812);
+                    viewer.imageryLayers.addImageryProvider(nightLayer);
+                } catch (e) {
+                    console.warn("Night Lights failed. Check your Asset Depot.");
+                }
+
+                // 5. Add the Moon & Atmosphere
                 viewer.scene.moon = new Cesium.Moon();
+                viewer.scene.skyAtmosphere = new Cesium.SkyAtmosphere();
 
-                // 5. Setup Lighting and Spin
-                viewer.scene.globe.enableLighting = true;
-                viewer.clock.multiplier = 1000;
+                // 6. Enable Sun Lighting & Time Speed
+                viewer.scene.globe.enableLighting = true; 
+                viewer.clock.multiplier = 1000;  // Speed up time
                 viewer.clock.shouldAnimate = true;
 
+                // 7. Earth Spin Script
                 viewer.scene.preRender.addEventListener(function() {
-                    if (viewer.camera.positionCartographic.height > 500000) {
-                        viewer.camera.rotateRight(0.0002);
+                    // Only spin if we are high up in space
+                    if (viewer.camera.positionCartographic.height > 2000000) {
+                        viewer.camera.rotateRight(0.0002); 
                     }
                 });
 
-                // Fly to Haines City
+                // 8. Start View: Fly to Earth from Space
                 viewer.camera.flyTo({
-                    destination: Cesium.Cartesian3.fromDegrees(-81.6231, 28.1136, 15000000),
+                    destination: Cesium.Cartesian3.fromDegrees(-81.6231, 28.1136, 15000000), 
                     duration: 3
                 });
 
-            } catch (error) {
-                console.error(error);
-                alert("Failed to initialize. Check your token and assets.");
-                document.getElementById('apiOverlay').style.display = 'flex';
+            } catch (e) {
+                console.error("Critical Error:", e);
+                alert("Something went wrong. Check the Console (F12) for details.");
             }
         }
+
+        init();
     </script>
 </body>
 </html>
