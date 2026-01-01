@@ -2,47 +2,17 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <script src="https://cesium.com/downloads/cesiumjs/releases/1.110/Build/Cesium/Cesium.js"></script>
-  <link href="https://cesium.com/downloads/cesiumjs/releases/1.110/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+  <script src="https://cesium.com/downloads/cesiumjs/releases/1.114/Build/Cesium/Cesium.js"></script>
+  <link href="https://cesium.com/downloads/cesiumjs/releases/1.114/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
   <style>
-    /* Ensure the globe fills the entire browser window */
     html, body, #cesiumContainer {
-      width: 100%; 
-      height: 100%; 
-      margin: 0; 
-      padding: 0; 
-      overflow: hidden;
+      width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden;
+      background-color: #000; /* Keeps screen black while loading */
     }
   </style>
 </head>
 <body>
   <div id="cesiumContainer"></div>
-  <script type="module">
-    // 1. Set your Access Token here
-    Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI5NzM1YmQ5Yi0wMTk4LTRlNDctYTBmNi00ZjU0MDMyZTQzZjQiLCJpZCI6MzczOTE1LCJpYXQiOjE3NjcyNzg2MTJ9.pEgSguWJY7MYUMJdpGToJto8Dxymegeo4iDbqRANtPo';
-
-    // 2. Initialize the Viewer with your settings
-    const viewer = new Cesium.Viewer("cesiumContainer", {
-      terrain: Cesium.Terrain.fromWorldTerrain(),
-    });
-
-    try {
-      // 3. Add your OSM Buildings tileset
-      const buildingsTileset = await Cesium.createOsmBuildingsAsync();
-      viewer.scene.primitives.add(buildingsTileset);
-
-      // 4. Execute your camera fly-to animation
-      viewer.camera.flyTo({
-        destination: Cesium.Cartesian3.fromDegrees(-122.4175, 37.655, 400),
-        orientation: {
-          heading: Cesium.Math.toRadians(0.0),
-          pitch: Cesium.Math.toRadians(-15.0),
-        },
-      });
-    } catch (error) {
-      console.error(`Error loading tileset: ${error}`);
-    }
-  </script>
+  <script type="module" src="./index.js"></script>
 </body>
 </html>
-
