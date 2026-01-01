@@ -3,15 +3,16 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-    <title>Google 3D Satellite</title>
+    <title>NASA Night-Sync v2.9</title>
     <script src="https://cesium.com/downloads/cesiumjs/releases/1.104/Build/Cesium/Cesium.js"></script>
     <link href="https://cesium.com/downloads/cesiumjs/releases/1.104/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
     <style>
         body { margin: 0; padding: 0; background: #000; overflow: hidden; }
         #cesiumContainer { width: 100vw; height: 100vh; }
-        /* Only the Search Bar remains */
-        .cesium-viewer-geocoderContainer { top: 20px !important; left: 20px !important; }
-        .cesium-viewer-bottom { display: none !important; }
+        /* ONLY THE SEARCH BAR - NO MENUS */
+        .cesium-viewer-geocoderContainer { top: 20px !important; left: 20px !important; z-index: 999; }
+        .cesium-viewer-bottom, .cesium-viewer-toolbar { display: none !important; }
+        .cesium-viewer-geocoderContainer { display: block !important; } /* Force search bar only */
     </style>
 </head>
 <body>
@@ -24,28 +25,48 @@
                 Cesium.Ion.defaultAccessToken = myToken.trim();
 
                 const viewer = new Cesium.Viewer('cesiumContainer', {
-                    globe: false, // Required for Google Tiles to display correctly
+                    globe: true, // Enabled for night lights
                     geocoder: true,
                     baseLayerPicker: false,
                     timeline: false,
                     animation: false,
                     infoBox: false,
-                    selectionIndicator: false
+                    selectionIndicator: false,
+                    navigationHelpButton: false,
+                    homeButton: false
                 });
 
-                // Add the Google 3D Tileset
+                // 1. 🏢 GOOGLE 3D TILES
                 const tileset = await Cesium.createGooglePhotorealistic3DTileset();
                 viewer.scene.primitives.add(tileset);
 
-                // Start view
-                viewer.camera.flyTo({
-                    destination: Cesium.Cartesian3.fromDegrees(-81.6231, 28.1136, 800),
-                    duration: 2
+                // 2. 🌃 NIGHT LIGHTS (Black Marble)
+                const nightLayer = await Cesium.IonImageryProvider.fromAssetId(3812);
+                viewer.imageryLayers.addImageryProvider(nightLayer);
+
+                // 3. ☀️ DYNAMIC LIGHTING & SPIN
+                viewer.scene.globe.enableLighting = true; 
+                viewer.clock.multiplier = 1000; // Time moves faster so you can see the sun move
+                viewer.clock.shouldAnimate = true;
+
+                // 🔄 EARTH SPIN SCRIPT
+                // Rotates the camera slightly every frame to simulate Earth's rotation
+                viewer.scene.preRender.addEventListener(function(scene, time) {
+                    if (viewer.camera.positionCartographic.height > 500000) { // Only spin when in space
+                        viewer.camera.rotateRight(0.0001); 
+                    }
                 });
 
-            } catch (e) {
-                console.log("Ensure Google 3D Tiles are added in your Ion Asset Depot!");
-            }
+                // 4. ATMOSPHERE
+                viewer.scene.skyAtmosphere = new Cesium.SkyAtmosphere();
+                viewer.scene.fog.enabled = true;
+
+                viewer.camera.flyTo({
+                    destination: Cesium.Cartesian3.fromDegrees(-81.6231, 28.1136, 10000000), // Start in deep space
+                    duration: 4
+                });
+
+            } catch (e) { console.error(e); }
         }
         init();
     </script>
