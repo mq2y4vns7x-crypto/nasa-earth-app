@@ -1,97 +1,48 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-    <title>NASA x Google Hyper-Reality</title>
-    <script src="https://cesium.com/downloads/cesiumjs/releases/1.104/Build/Cesium/Cesium.js"></script>
-    <link href="https://cesium.com/downloads/cesiumjs/releases/1.104/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
-    <style>
-        body { margin: 0; padding: 0; background: #000; overflow: hidden; }
-        #cesiumContainer { width: 100vw; height: 100vh; }
-        #loadingOverlay {
-            position: fixed; top: 10px; left: 10px; 
-            color: #00f2ff; font-family: monospace; font-size: 12px;
-            background: rgba(0,0,0,0.6); padding: 8px; border: 1px solid #00f2ff;
-            pointer-events: none; z-index: 10;
-        }
-    </style>
+  <meta charset="utf-8">
+  <script src="https://cesium.com/downloads/cesiumjs/releases/1.110/Build/Cesium/Cesium.js"></script>
+  <link href="https://cesium.com/downloads/cesiumjs/releases/1.110/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+  <style>
+    /* Ensure the globe fills the entire browser window */
+    html, body, #cesiumContainer {
+      width: 100%; 
+      height: 100%; 
+      margin: 0; 
+      padding: 0; 
+      overflow: hidden;
+    }
+  </style>
 </head>
 <body>
+  <div id="cesiumContainer"></div>
+  <script type="module">
+    // 1. Set your Access Token here
+    Cesium.Ion.defaultAccessToken = 'YOUR_CESIUM_ION_TOKEN_HERE';
 
-<div id="loadingOverlay">SATELLITE SYSTEMS: CONNECTING...</div>
-<div id="cesiumContainer"></div>
+    // 2. Initialize the Viewer with your settings
+    const viewer = new Cesium.Viewer("cesiumContainer", {
+      terrain: Cesium.Terrain.fromWorldTerrain(),
+    });
 
-<script>
-    // 1. YOUR API KEY
-    const myToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI5NzM1YmQ5Yi0wMTk4LTRlNDctYTBmNi00ZjU0MDMyZTQzZjQiLCJpZCI6MzczOTE1LCJpYXQiOjE3NjcyNzg2MTJ9.pEgSguWJY7MYUMJdpGToJto8Dxymegeo4iDbqRANtPo';
+    try {
+      // 3. Add your OSM Buildings tileset
+      const buildingsTileset = await Cesium.createOsmBuildingsAsync();
+      viewer.scene.primitives.add(buildingsTileset);
 
-    async function init() {
-        if (myToken.length < 20) {
-            document.getElementById('loadingOverlay').innerHTML = "!!! PASTE YOUR TOKEN IN THE CODE !!!";
-            return;
-        }
-
-        Cesium.Ion.defaultAccessToken = myToken.trim();
-
-        // 2. SETUP VIEWER
-        const viewer = new Cesium.Viewer('cesiumContainer', {
-            geocoder: true,
-            timeline: false,
-            animation: false,
-            baseLayerPicker: false,
-            globe: false, // Disabling standard globe for Google 3D Tiles
-        });
-
-        const status = document.getElementById('loadingOverlay');
-
-        try {
-            // 3. LOAD GOOGLE 3D WORLD (The Reality Base)
-            const googleTileset = await Cesium.createGooglePhotorealistic3DTileset();
-            viewer.scene.primitives.add(googleTileset);
-            status.innerHTML = "WORLD: OK | ";
-
-            // 4. LOAD GAUSSIAN SPLATTING (From your shared link)
-            // This renders the fine details like power lines and metal beams
-            const splatTileset = await Cesium.Cesium3DTileset.fromAssetId(2716111);
-            
-            // Apply the specific realistic shading from your shared script
-            splatTileset.pointCloudShading.attenuation = true;
-            splatTileset.pointCloudShading.maximumAttenuation = 4.0;
-            splatTileset.pointCloudShading.geometricErrorScale = 1.0;
-            
-            viewer.scene.primitives.add(splatTileset);
-            status.innerHTML += "SPLAT: OK | ";
-
-            // 5. LOAD NASA NIGHT LIGHTS
-            const nightLayer = await Cesium.IonImageryProvider.fromAssetId(3812);
-            viewer.imageryLayers.addImageryProvider(nightLayer);
-            status.innerHTML += "NASA: OK";
-
-            // 6. CINEMATIC LIGHTING & POST-PROCESSING
-            viewer.scene.postProcessStages.bloom.enabled = true;
-            viewer.scene.postProcessStages.bloom.uniforms.contrast = 125.0;
-            viewer.scene.skyAtmosphere.show = true;
-            viewer.scene.fog.enabled = true;
-
-            // 7. CAMERA POSITION (Fly to your shared coordinates)
-            viewer.camera.flyTo({
-                destination: new Cesium.Cartesian3(1234458.7505350353, -4648782.723869279, 4125375.3188546523),
-                orientation: {
-                    heading: 0.286,
-                    pitch: -0.224,
-                    roll: 0
-                },
-                duration: 4
-            });
-
-        } catch (e) {
-            status.innerHTML = "CRITICAL ERROR: " + e.message;
-            console.error(e);
-        }
+      // 4. Execute your camera fly-to animation
+      viewer.camera.flyTo({
+        destination: Cesium.Cartesian3.fromDegrees(-122.4175, 37.655, 400),
+        orientation: {
+          heading: Cesium.Math.toRadians(0.0),
+          pitch: Cesium.Math.toRadians(-15.0),
+        },
+      });
+    } catch (error) {
+      console.error(`Error loading tileset: ${error}`);
     }
-
-    init();
-</script>
+  </script>
 </body>
 </html>
+
