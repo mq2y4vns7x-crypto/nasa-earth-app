@@ -3,16 +3,16 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-    <title>NASA Earth v8.2</title>
+    <title>NASA Satellite v8.4</title>
     <script src="https://cesium.com/downloads/cesiumjs/releases/1.104/Build/Cesium/Cesium.js"></script>
     <link href="https://cesium.com/downloads/cesiumjs/releases/1.104/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
     <style>
-        body { margin: 0; padding: 0; background: #000; overflow: hidden; color: #00f2ff; font-family: monospace; }
+        body { margin: 0; padding: 0; background: #000; color: #00f2ff; font-family: monospace; overflow: hidden; }
         #cesiumContainer { width: 100vw; height: 100vh; }
         #mobileConsole {
-            position: fixed; bottom: 0; left: 0; width: 100%; height: 80px;
+            position: fixed; bottom: 0; left: 0; width: 100%; height: 90px;
             background: rgba(0,0,0,0.9); border-top: 1px solid #00f2ff;
-            font-size: 10px; overflow: scroll; z-index: 999; padding: 5px;
+            font-size: 10px; overflow-y: scroll; z-index: 10; padding: 10px;
         }
         .cesium-viewer-bottom { display: none !important; }
     </style>
@@ -20,59 +20,57 @@
 <body>
 
 <div id="cesiumContainer"></div>
-<div id="mobileConsole">Initializing...</div>
+<div id="mobileConsole">Initializing Satellite Systems...</div>
 
 <script>
-    // 👇 YOUR TOKEN HERE
+    // 🔑 PASTE TOKEN BELOW
     const myToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI5NzM1YmQ5Yi0wMTk4LTRlNDctYTBmNi00ZjU0MDMyZTQzZjQiLCJpZCI6MzczOTE1LCJpYXQiOjE3NjcyNzg2MTJ9.pEgSguWJY7MYUMJdpGToJto8Dxymegeo4iDbqRANtPo';
 
     const con = document.getElementById('mobileConsole');
     function log(m, err=false) {
-        con.innerHTML += `<br><span style="color:${err?'red':'#00f2ff'}">${m}</span>`;
+        con.innerHTML += `<br><span style="color:${err?'#ff4b4b':'#00f2ff'}">${m}</span>`;
         con.scrollTop = con.scrollHeight;
     }
 
     async function init() {
-        if (myToken.length < 50) { log("PASTE TOKEN FIRST!", true); return; }
+        if (myToken.length < 20) { log("PASTE TOKEN IN SCRIPT!", true); return; }
         
         try {
             Cesium.Ion.defaultAccessToken = myToken.trim();
             
-            // Standard Viewer
             const viewer = new Cesium.Viewer('cesiumContainer', {
                 geocoder: true,
                 timeline: false,
                 animation: false,
-                baseLayerPicker: false,
-                msaaSampleCount: 1 // Lower quality for faster mobile loading
+                baseLayerPicker: false
             });
+            log("Viewer: CONNECTED");
 
-            // FORCE LOAD NIGHT LIGHTS
+            // Load NASA Night (Asset 3812)
             try {
-                const night = await Cesium.IonImageryProvider.fromAssetId(3812);
-                viewer.imageryLayers.addImageryProvider(night);
-                log("NIGHT: OK");
-            } catch(e) { log("NIGHT: Access Denied", true); }
+                const nightLayer = await Cesium.IonImageryProvider.fromAssetId(3812);
+                viewer.imageryLayers.addImageryProvider(nightLayer);
+                log("NIGHT: ACTIVE");
+            } catch(e) { 
+                log("NIGHT: Access Denied. (Tip: Set Token to 'All Assets')", true); 
+            }
 
-            // FORCE LOAD 3D BUILDINGS
+            // Load Google 3D
             try {
-                const bld = await Cesium.createGooglePhotorealistic3DTileset();
-                viewer.scene.primitives.add(bld);
-                log("3D BUILDINGS: OK");
-            } catch(e) { log("3D: Access Denied", true); }
+                const google3d = await Cesium.createGooglePhotorealistic3DTileset();
+                viewer.scene.primitives.add(google3d);
+                log("GOOGLE 3D: ACTIVE");
+            } catch(e) { 
+                log("3D: Access Denied. (Tip: Add to Assets in Depot)", true); 
+            }
 
             viewer.scene.globe.enableLighting = true;
-            viewer.scene.moon = new Cesium.Moon();
-
-            // Fly-to Haines City
             viewer.camera.flyTo({
                 destination: Cesium.Cartesian3.fromDegrees(-81.6231, 28.1136, 15000000),
                 duration: 2
             });
 
-            log("SYSTEM ONLINE");
-
-        } catch (e) { log("FATAL: " + e.message, true); }
+        } catch (e) { log("FATAL ERROR: " + e.message, true); }
     }
     init();
 </script>
